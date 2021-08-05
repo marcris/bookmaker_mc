@@ -1,0 +1,43 @@
+[tool.poetry]
+name = "bookmaker_mc"
+# keep in sync with bookmaker/__init__.py (setuptools >=46.4.0)
+version = "0.9.1rc2"
+description = "A Book Authoring Application in Python"
+license = "MIT"
+authors = ["Chris Brown <chris@marcrisoft.co.uk>"]
+readme = "README.md"
+repository = "https://github.com/marcris/bookmaker-mc"
+classifiers = [
+    "Programming Language :: Python :: 3.8",
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: End Users/Desktop"
+]
+packages = [
+    { include = "bookmaker", from = "src" },
+]
+include = ["src/bookmaker/*.xml"]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+
+PyGObject = { version = "^3.40" }
+Pygments = { version = "^2.9" }
+mistune = { git = "https://github.com/lepture/mistune.git", tag = "v2.0.0rc1" }
+tomlkit = "^0.7.2"
+
+[tool.poetry.dev-dependencies]
+pytest = "^5.2"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+bm = "bookmaker:main"
+
+[virtualenvs]
+in-project = true
+
+#[tool.poetry-version-plugin]
+#source = 'init'
+

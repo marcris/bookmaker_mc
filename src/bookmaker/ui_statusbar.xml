@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <object class="GtkStatusbar" id="statusbar">
+    <property name="visible">True</property>
+    <property name="can_focus">True</property>
+  </object>
+</interface>
+

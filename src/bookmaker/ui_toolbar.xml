@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <object class='GtkToolbar' id='toolbar'>
+    <property name='visible'>True</property>
+    <property name='can_focus'>False</property>
+    <child>
+      <object class='GtkToolButton' id='toolbutton_selectprojectfolder'>
+        <property name='visible'>True</property>
+        <property name='can_focus'>False</property>
+        <property name='tooltip_text' translatable='yes'>Select project folder</property>
+        <property name='action_name'>win.selectprojectfolder</property>
+        <property name='icon_name'>document-open</property>
+      </object>
+      <packing>
+        <property name='expand'>False</property>
+        <property name='homogeneous'>True</property>
+      </packing>
+    </child>
+     <child>
+      <object class='GtkSeparatorToolItem'>
+        <property name='draw'>True</property>
+      </object>
+      <packing>
+        <property name='expand'>False</property>
+      </packing>
+    </child>
+    <child>
+      <object class='GtkToolButton' id='toolbutton_undo'>
+        <property name='visible'>True</property>
+        <property name='can_focus'>False</property>
+        <property name='tooltip_text' translatable='yes'>Undo</property>
+        <property name='action_name'>win.undo</property>
+        <property name='icon_name'>edit-undo</property>
+      </object>
+      <packing>
+        <property name='expand'>False</property>
+        <property name='homogeneous'>True</property>
+      </packing>
+    </child>
+    <child>
+      <object class='GtkToolButton' id='toolbutton_redo'>
+        <property name='visible'>True</property>
+        <property name='can_focus'>False</property>
+        <property name='tooltip_text' translatable='yes'>Redo</property>
+        <property name='action_name'>win.redo</property>
+        <property name='icon_name'>edit-redo</property>
+      </object>
+      <packing>
+        <property name='expand'>False</property>
+        <property name='homogeneous'>True</property>
+      </packing>
+    </child>
+     <child>
+      <object class='GtkSeparatorToolItem'>
+        <property name='draw'>True</property>
+      </object>
+      <packing>
+        <property name='expand'>False</property>
+      </packing>
+    </child>
+    <child>
+      <object class='GtkToolButton' id='toolbutton_cut'>
+        <property name='visible'>True</property>
+        <property name='can_focus'>False</property>
+        <property name='tooltip_text' translatable='yes'>Cut</property>
+        <property name='action_name'>win.cut</property>
+        <property name='icon_name'>edit-cut</property>
+      </object>
+      <packing>
+        <property name='expand'>False</property>
+        <property name='homogeneous'>True</property>
+      </packing>
+    </child>
+    <child>
+      <object class='GtkToolButton' id='toolbutton_copy'>
+        <property name='visible'>True</property>
+        <property name='can_focus'>False</property>
+        <property name='tooltip_text' translatable='yes'>Copy</property>
+        <property name='action_name'>win.copy</property>
+        <property name='icon_name'>edit-copy</property>
+      </object>
+      <packing>
+        <property name='expand'>False</property>
+        <property name='homogeneous'>True</property>
+      </packing>
+    </child>
+    <child>
+      <object class='GtkToolButton' id='toolbutton_paste'>
+        <property name='visible'>True</property>
+        <property name='can_focus'>False</property>
+        <property name='tooltip_text' translatable='yes'>Paste</property>
+        <property name='action_name'>win.paste</property>
+        <property name='icon_name'>edit-paste</property>
+      </object>
+      <packing>
+        <property name='expand'>False</property>
+        <property name='homogeneous'>True</property>
+      </packing>
+    </child>
+    <child>
+      <object class='GtkSeparatorToolItem'>
+        <property name='draw'>True</property>
+      </object>
+      <packing>
+        <property name='expand'>False</property>
+      </packing>
+    </child>
+    <child>
+      <object class='GtkToolButton' id='toolbutton_bold'>
+        <property name='visible'>True</property>
+        <property name='can_focus'>False</property>
+        <property name='tooltip_text' translatable='yes'>Bold</property>
+        <property name='action_name'>win.bold</property>
+        <property name='icon_name'>format-text-bold</property>
+      </object>
+      <packing>
+        <property name='expand'>False</property>
+        <property name='homogeneous'>True</property>
+      </packing>
+    </child>
+    <child>
+      <object class='GtkToolButton' id='toolbutton_italic'>
+        <property name='visible'>True</property>
+        <property name='can_focus'>False</property>
+        <property name='tooltip_text' translatable='yes'>Italic</property>
+        <property name='action_name'>win.italic</property>
+        <property name='icon_name'>format-text-italic</property>
+      </object>
+      <packing>
+        <property name='expand'>False</property>
+        <property name='homogeneous'>True</property>
+      </packing>
+    </child>
+    <child>
+      <object class='GtkToolButton' id='toolbutton_uline'>
+        <property name='visible'>True</property>
+        <property name='can_focus'>False</property>
+        <property name='tooltip_text' translatable='yes'>Underline</property>
+        <property name='action_name'>win.uline</property>
+        <property name='icon_name'>format-text-underline</property>
+      </object>
+      <packing>
+        <property name='expand'>False</property>
+        <property name='homogeneous'>True</property>
+      </packing>
+    </child>
+    <child>
+      <object class='GtkSeparatorToolItem'>
+        <property name='draw'>True</property>
+      </object>
+      <packing>
+        <property name='expand'>False</property>
+      </packing>
+    </child>
+    <child>
+      <object class='GtkToolButton' id='toolbutton_python'>
+        <property name='visible'>True</property>
+        <property name='can_focus'>False</property>
+        <property name='tooltip_text' translatable='yes'>Selection as Python code</property>
+        <property name='action_name'>win.as_python</property>
+        <property name='icon_name'>icon_py</property>
+      </object>
+      <packing>
+        <property name='expand'>False</property>
+        <property name='homogeneous'>True</property>
+      </packing>
+    </child>
+    <child>
+      <object class='GtkToolButton' id='toolbutton_text'>
+        <property name='visible'>True</property>
+        <property name='can_focus'>False</property>
+        <property name='tooltip_text' translatable='yes'>Selection as plain text</property>
+        <property name='action_name'>win.as_text</property>
+        <property name='icon_name'>icon_txt</property>
+      </object>
+      <packing>
+        <property name='expand'>False</property>
+        <property name='homogeneous'>True</property>
+      </packing>
+    </child>
+    <child>
+      <object class='GtkSeparatorToolItem'>
+        <property name='draw'>True</property>
+      </object>
+      <packing>
+        <property name='expand'>False</property>
+      </packing>
+    </child>
+    <child>
+      <object class='GtkToolButton' id='toolbutton_image'>
+        <property name='visible'>True</property>
+        <property name='can_focus'>False</property>
+        <property name='tooltip_text' translatable='yes'>Insert image</property>
+        <property name='action_name'>win.insert-image</property>
+        <property name='icon_name'>insert-image</property>
+      </object>
+      <packing>
+        <property name='expand'>False</property>
+        <property name='homogeneous'>True</property>
+      </packing>
+    </child>
+     <child>
+      <object class='GtkSeparatorToolItem'>
+        <property name='draw'>False</property>
+      </object>
+      <packing>
+        <property name='expand'>True</property>
+      </packing>
+    </child>
+    <child>
+      <object class='GtkToolButton' id='toolbutton_quit'>
+        <property name='visible'>True</property>
+        <property name='can_focus'>False</property>
+        <property name='tooltip_text' translatable='yes'>Quit</property>
+        <property name='action_name'>app.quit</property>
+        <property name='icon_name'>application-exit</property>
+      </object>
+      <packing>
+        <property name='expand'>False</property>
+        <property name='homogeneous'>True</property>
+      </packing>
+    </child>
+  </object>
+</interface>
+
