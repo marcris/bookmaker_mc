@@ -258,26 +258,6 @@ class TOCview(Gtk.ScrolledWindow):
         # this part acts as the contextmanager __exit__() method
         chooser.destroy()
 
-
-    def open_gitbook_folder(self):
-        with self.choose_project_folder() as project_directory:
-            if project_directory:   # if returned None (Cancel) don't change anything
-                # ... otherwise set up our book project structure
-                self.project_directory = project_directory
-                self.book_directory = self.project_directory + "/_book"
-                self.css_directory = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'css_resources')
-                print(self.css_directory)
-
-                self.book_css_directory = os.path.join(self.book_directory, '_css')
-                if not os.path.exists(self.book_css_directory):
-                    # make the _book/_css directory and put our project css in it
-                    os.mkdir(self.book_css_directory)
-                    shutil.copytree(os.path.join(self.book_directory, '_css'), self.book_css_directory)
-
-                self.epub_directory = self.project_directory + "/_epub"  # created/emptied if user does "export to epub"
-                self.pdf_directory = self.project_directory + "/_pdf"  # created/emptied if user does "export to pdf"
-                return True
-
     def open_section(self, section, project_directory, filename_tail):
         # NEW file details are supplied as arguments
         self.filename_path = os.path.join(project_directory, filename_tail)

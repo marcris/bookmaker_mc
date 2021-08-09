@@ -4,6 +4,7 @@ import os
 import shutil
 import sys
 import platform
+from collections import deque
 
 
 print('')
@@ -157,35 +158,20 @@ class AppWindow(Gtk.ApplicationWindow):
 
         # Set up for File | Open recent...
         settings = Gtk.Settings.get_default()
-        settings.set_property("gtk-recent-files-enabled", True)
+        # We're not using GTK's recent files mechanism
+        settings.set_property("gtk-recent-files-enabled", False)
 
-        # If the menu.xml file is derived using Glade, we get a definition of
-        # the recent manager and the filter provided. However, if we want to do
-        # some of the work in Python code, we can't just go ahead and use these.
+        self.settings = self.TV.find_settings() # BookMaker's private settings
+        # Instead we'll keep a record in settings 'project-dirs'
+        self.recentbooks = deque([], maxlen=9)
+        self.recentbooks.extend(self.settings.get_value('project-dirs').unpack())
+        print(self.recentbooks)
 
-        # If wo use the Glade-provided recent manager, it will be re-created
-        # for each session, whereas we would like to see recently used files even
-        # after a reboot.
-
-        # The default recent manager will hold the information over a restart.
-        self.recent_manager = Gtk.RecentManager.get_default()
-
-        # However, we need to use the recent-chooser-menu from menu.xml, because
-        # its position as a submenu is defined there. If we make a new one in code
-        # it won't be the one visible in the interface and although that will display
-        # the recent files, clicking it won't do anything.
         menu = self.builder.get_object("recent-chooser-menu")
-        menu.set_show_not_found(False)
-        menu.set_local_only(True)
-        menu.set_limit(10)
-        menu.set_sort_type(Gtk.RecentSortType.MRU)
-        menu.connect("selection-done", self.on_item_activated)
-
-        filter = Gtk.RecentFilter.new()
-        filter.set_name("Bookmaker projects")
-        filter.add_mime_type("inode/directory")
-        filter.add_pattern("*")
-        menu.set_filter(filter)
+        for item in self.recentbooks:
+            menuitem = Gtk.MenuItem(item)
+            menu.prepend(menuitem)
+            menuitem.connect("activate", self.on_open_recent_book)
 
         # Set up the actions to make the menu/toolbar "live" before
         # we populate the toc/markdown/preview.
@@ -297,14 +283,12 @@ class AppWindow(Gtk.ApplicationWindow):
             # ... otherwise set up our book project structure
             self.open_book_project(project_directory)
 
+
+    def my_recent_manager(self, ):
+        pass
+
     def on_openrecent_clicked(self, action, parameter):
         print("openrecent clicked")
-        menu = self.builder.get_object("recent-chooser-menu")
-        menu.set_show_not_found(False)
-        menu.set_local_only(True)
-        menu.set_limit(10)
-        menu.set_sort_type(Gtk.RecentSortType.MRU)
-        menu.connect("selection-done", self.on_item_activated)
 
     def on_item_activated(self, parameter):
         print('item activated')
@@ -315,6 +299,9 @@ class AppWindow(Gtk.ApplicationWindow):
     def open_book_project(self, project_directory):
         # First close down the current book safely. (Current file details still held by TV)
         self.MV.save_if_dirty(self.TV.project_directory, self.TV.filename_tail)
+        print(os.getcwd(), os.path.exists(project_directory))
+        if not os.path.exists(project_directory):
+            raise FileNotFoundError(f'"{project_directory}" - no such book exists')
 
         self.project_directory = project_directory
         self.book_directory = project_directory + "/_book"
@@ -349,6 +336,16 @@ class AppWindow(Gtk.ApplicationWindow):
 
         self.set_title("BookMaker - " + project_directory)
 
+        self.recentbooks.clear()    # clear and rebuild the deque
+        self.recentbooks.extend(self.settings.get_value('project-dirs').unpack())
+        if not project_directory in self.recentbooks:
+            self.recentbooks.appendleft(project_directory)
+            self.settings.set_value('project-dirs', GLib.Variant('as', self.recentbooks))
+            menu = self.builder.get_object("recent-chooser-menu")
+            menuitem = Gtk.MenuItem(label=project_directory)
+            menu.prepend(menuitem)
+            menuitem.connect("activate", self.on_open_recent_book)
+
         self.MV.is_dirty = False  # DON'T write nothingness to SUMMARY.md !!!
 
         self.MV.textbuffer.begin_not_undoable_action()
@@ -356,6 +353,11 @@ class AppWindow(Gtk.ApplicationWindow):
         self.MV.textbuffer.end_not_undoable_action()
 
         self.TV.re_write_summary()
+
+    def on_open_recent_book(self, parameter):
+        dir = parameter.get_label() # parameter is the recent books submenu item clicked
+        print(f'on_open_recent_book("{dir}")')
+        self.open_book_project(dir)
 
     def on_exporttoepub_clicked(self, action, parameter):
         print("exporttoepub clicked")

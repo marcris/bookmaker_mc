@@ -40,17 +40,18 @@
               </object>
             </child>
             <child>
-              <object class="GtkImageMenuItem">
+              <object class="GtkImageMenuItem" id="recent-books-menu">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="label" translatable="yes">Recent books ...</property>
+                <property name="action_name">win.openrecent</property>
                 <property name="use_underline">True</property>
                 <property name="use_stock">True</property>
                 <child type="submenu">
-                  <object class="GtkRecentChooserMenu" id="recent-chooser-menu">
+                  <object class="GtkMenu" id="recent-chooser-menu">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
-                    <property name="limit">10</property>
+<!--                    <property name="limit">10</property>-->
                   </object>
                 </child>
               </object>
