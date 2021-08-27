@@ -73,7 +73,7 @@ class AppWindow(Gtk.ApplicationWindow):
         self.MV.save_if_dirty(self.TV.project_directory, self.TV.filename_tail)
         return False  # means go ahead with the Gtk.main_quit action
 
-    def __init__(self, app, **kwargs):
+    def __init__(self, app, *args, **kwargs):
         Gtk.Window.__init__(self, application=app)
         # super().__init__(app, **kwargs)
         self.app = app
@@ -161,10 +161,10 @@ class AppWindow(Gtk.ApplicationWindow):
         # We're not using GTK's recent files mechanism
         settings.set_property("gtk-recent-files-enabled", False)
 
-        self.settings = self.TV.find_settings() # BookMaker's private settings
+        self.gsettings = self.TV.gsettings # BookMaker's private settings
         # Instead we'll keep a record in settings 'project-dirs'
         self.recentbooks = deque([], maxlen=9)
-        self.recentbooks.extend(self.settings.get_value('project-dirs').unpack())
+        self.recentbooks.extend(self.gsettings.get_value('project-dirs').unpack())
         print(self.recentbooks)
 
         menu = self.builder.get_object("recent-chooser-menu")
@@ -283,10 +283,6 @@ class AppWindow(Gtk.ApplicationWindow):
             # ... otherwise set up our book project structure
             self.open_book_project(project_directory)
 
-
-    def my_recent_manager(self, ):
-        pass
-
     def on_openrecent_clicked(self, action, parameter):
         print("openrecent clicked")
 
@@ -337,15 +333,9 @@ class AppWindow(Gtk.ApplicationWindow):
         self.set_title("BookMaker - " + project_directory)
 
         self.recentbooks.clear()    # clear and rebuild the deque
-        self.recentbooks.extend(self.settings.get_value('project-dirs').unpack())
-        if not project_directory in self.recentbooks:
-            self.recentbooks.appendleft(project_directory)
-            self.settings.set_value('project-dirs', GLib.Variant('as', self.recentbooks))
-            menu = self.builder.get_object("recent-chooser-menu")
-            menuitem = Gtk.MenuItem(label=project_directory)
-            menu.prepend(menuitem)
-            menuitem.connect("activate", self.on_open_recent_book)
-
+        self.recentbooks.extend(self.gsettings.get_value('project-dirs').unpack())
+        if project_directory not in self.recentbooks:
+            self.add_to_recentbooks(project_directory)
         self.MV.is_dirty = False  # DON'T write nothingness to SUMMARY.md !!!
 
         self.MV.textbuffer.begin_not_undoable_action()
@@ -354,10 +344,18 @@ class AppWindow(Gtk.ApplicationWindow):
 
         self.TV.re_write_summary()
 
+    def add_to_recentbooks(self, project_directory):
+        self.recentbooks.appendleft(project_directory)
+        self.gsettings.set_value('project-dirs', GLib.Variant('as', self.recentbooks))
+        menu = self.builder.get_object("recent-chooser-menu")
+        menuitem = Gtk.MenuItem(label=project_directory)
+        menu.prepend(menuitem)
+        menuitem.connect("activate", self.on_open_recent_book)
+
     def on_open_recent_book(self, parameter):
-        dir = parameter.get_label() # parameter is the recent books submenu item clicked
-        print(f'on_open_recent_book("{dir}")')
-        self.open_book_project(dir)
+        which_book = parameter.get_label() # parameter is the recent books submenu item clicked
+        print(f'on_open_recent_book("{which_book}")')
+        self.open_book_project(which_book)
 
     def on_exporttoepub_clicked(self, action, parameter):
         print("exporttoepub clicked")
@@ -434,17 +432,17 @@ class AppWindow(Gtk.ApplicationWindow):
         dlg.set_current_folder(self.TV.project_directory)
         dlg.set_default_response(Gtk.ResponseType.OK)
 
-        filter = Gtk.FileFilter()
-        filter.set_name("Images")
-        filter.add_mime_type("image/png")
-        filter.add_mime_type("image/jpeg")
-        filter.add_mime_type("image/gif")
-        filter.add_pattern("*.png")
-        filter.add_pattern("*.jpg")
-        filter.add_pattern("*.gif")
-        filter.add_pattern("*.tif")
-        filter.add_pattern("*.xpm")
-        dlg.add_filter(filter)
+        filefilter = Gtk.FileFilter()
+        filefilter.set_name("Images")
+        filefilter.add_mime_type("image/png")
+        filefilter.add_mime_type("image/jpeg")
+        filefilter.add_mime_type("image/gif")
+        filefilter.add_pattern("*.png")
+        filefilter.add_pattern("*.jpg")
+        filefilter.add_pattern("*.gif")
+        filefilter.add_pattern("*.tif")
+        filefilter.add_pattern("*.xpm")
+        dlg.add_filter(filefilter)
 
         response = dlg.run()
         if response == Gtk.ResponseType.OK:

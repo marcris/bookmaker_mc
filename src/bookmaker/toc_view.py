@@ -5,7 +5,6 @@ import codecs
 
 import shutil
 import datetime
-from datetime import *
 
 import uuid
 
@@ -16,14 +15,15 @@ from pathlib import Path
 
 from .XMLforEPUB import container_xml, content_opf, toc_xhtml, toc_xhtml_end, toc_ncx, toc_ncx_end, cover_xhtml
 
-# import importlib_resources as resources
-
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gio, GLib
 
 import subprocess
-import sys
+import pathlib
+
+XHTML_EXT = '.xhtml'
+
 
 template_css="""h1 {
   text-align: center;
@@ -127,23 +127,31 @@ class TOCview(Gtk.ScrolledWindow):
     def find_settings(self):
         # Make an instance of the GSettings for BookMaker.
         # Should only be called once, from TOCview.__init__.
-        _curr_dir = os.getcwd()
+        _curr_dir = os.path.split(__file__)[0]
         if not _curr_dir.startswith('/home/'):
             # We assume this means the application is installed, so look in the
             # central directory for GSettings schemas (/usr/share/glib-2.0/schemas)
             return Gio.Settings.__new__('com.marcrisoft.bookmaker')
 
-        # Otherwise, get schemas from the current (development) directory; but it's not to be trusted
-        print('Creating instance for settings')
-        schema_source = Gio.SettingsSchemaSource.new_from_directory(
-            _curr_dir,
-            Gio.SettingsSchemaSource.get_default(), trusted=False)
-        schema = Gio.SettingsSchemaSource.lookup(
-            schema_source, 'com.marcrisoft.bookmaker', recursive=False)
-        if not schema:
-            raise Exception("Cannot get GSettings schema 'com.marcrisoft.bookmaker'")
+        # Otherwise, get schema from the current (development) directory.
+        # Make sure its been compiled since last change by compiling it now.
+        # We should get (or overwrite) gschemas.compiled in ~/.local/share/glib-2.0/schemas,
+        # but that should really be part of (local) installation. During development,
+        # just compile it into current directory.
+        try:
+            print("compiling gsettings schema")
+            subprocess.check_call(f'glib-compile-schemas .', shell=True)
+        except subprocess.CalledProcessError:
+            print ("compile didn't work")
+            return None
+        else:
+            schema_source = Gio.SettingsSchemaSource.new_from_directory(
+                _curr_dir, Gio.SettingsSchemaSource.get_default(), trusted=False)
+            schema = schema_source.lookup(
+                'com.marcrisoft.bookmaker', recursive=False)
+            if not schema:
+                raise Exception("Cannot get GSettings schema 'com.marcrisoft.bookmaker'")
 
-        # look in the current directory
         return Gio.Settings.new_full(schema, backend=None, path='/com/marcrisoft/bookmaker/')
 
     def __init__(self, main_window):
@@ -151,7 +159,8 @@ class TOCview(Gtk.ScrolledWindow):
 
         self.main_window = main_window
 
-        self.gsettings = self.find_settings()
+        if not hasattr(self, 'gsettings'):
+            self.gsettings = self.find_settings()
         self.recentbooks = deque([], maxlen=9)
 
         self.project_directory = None
@@ -227,11 +236,11 @@ class TOCview(Gtk.ScrolledWindow):
         else:
             chooser.set_current_folder(os.path.expanduser('~'))
             
-        filter = Gtk.FileFilter()
-        filter.set_name("Bookmaker projects")
-        filter.add_mime_type("inode/directory")
-        filter.add_pattern("*")
-        chooser.add_filter(filter)
+        filefilter = Gtk.FileFilter()
+        filefilter.set_name("Bookmaker projects")
+        filefilter.add_mime_type("inode/directory")
+        filefilter.add_pattern("*")
+        chooser.add_filter(filefilter)
 
         chooser.set_default_response(Gtk.ResponseType.OK)
         response = chooser.run()
@@ -271,18 +280,20 @@ class TOCview(Gtk.ScrolledWindow):
         self.project_directory = project_directory  # new file details belong to TV (self)
         self.filename_tail = filename_tail
         try:
-            f = codecs.open("{0}.md".format(self.filename_path), 'r', encoding='utf-8')
-            line = f.readline()     # read and discard first line (replaced below)
-            text = f.read(-1)       # rest of the file
-            self.MV.textbuffer.set_text("# {0}\n{1}".format(section, text)) # generated first line replacement
-            f.close()
-
-            self.MV.is_dirty = False
-
+            self.force_first_line(section)
         except NameError as e:
             # self.write_status_bar(
             print(
                "Failed to open/read {0}.md :- {1}".format(self.filename_path, e.args))
+
+    def force_first_line(self, section):
+        f = codecs.open("{0}.md".format(self.filename_path), 'r', encoding='utf-8')
+        f.readline()        # read and discard existing first line
+        text = f.read(-1)   # rest of the file
+        self.MV.textbuffer.set_text("# {0}\n{1}".format(section, text)) # generated first line replacement
+        f.close()
+
+        self.MV.is_dirty = False
 
 
     def get_project_directory(self):
@@ -311,11 +322,6 @@ class TOCview(Gtk.ScrolledWindow):
             f.write('<pre>')
 
             scan = self.toc_scan()  # we need a new generator
-
-            prev_section = 0
-            prev_sub = 0
-            prev_subsub = 0
-            
             for it in scan:
                 section = str(self.toc_model.get_value(it[1], 2))
                 sub = str(self.toc_model.get_value(it[1], 3))
@@ -343,39 +349,6 @@ class TOCview(Gtk.ScrolledWindow):
                 
             f.write('</pre></body></html>')
             
-    # def export_to_pdf(self):  # with assistance from weasyprint
-    #     from weasyprint import HTML
-    #
-    #     # Run through the table of contents, concatenating the .xhtml files
-    #     # into pdf_directory.
-    #     scan = self.toc_scan()  # we need a new generator
-    #
-    #     # make an empty "_pdf" directory, or empty it if it exists.
-    #     self.pdf_directory = "{0}/_pdf".format(self.project_directory)
-    #     shutil.rmtree(self.pdf_directory, True)
-    #     os.mkdir(self.pdf_directory)
-    #
-    #     xhtml_file = f'{self.project_directory}/_pdf/cat.xhtml'
-    #     with codecs.open(xhtml_file, "w") as f:
-    #         f.write(open_bracket_html)
-    #
-    #         for it in scan:
-    #             title = self.toc_model.get_value(it[1], 0)
-    #             filepath = self.toc_model.get_value(it[1], 1)
-    #             section = self.toc_model.get_value(it[1], 2)
-    #
-    #             htmlpath = filepath[0:-3] + '.xhtml'
-    #             print("HTMLPATH", htmlpath)
-    #
-    #             self.open_section(f"{section} {title}", self.project_directory, filepath[0:-3])
-    #
-    #             f.write(self.MV.render_text2html(self.MV.textbuffer.get_property("text")))
-    #
-    #         f.write(close_bracket_html)
-    #
-    #         HTML(filename=xhtml_file).write_pdf(self.pdf_directory + '/book.pdf')
-
-
 
     def refresh_all(self):
         # Used by export_to_epub().
@@ -400,7 +373,7 @@ class TOCview(Gtk.ScrolledWindow):
             filepath = self.toc_model.get_value(it[1], 1)
             section = self.toc_model.get_value(it[1], 2)
 
-            htmlpath = filepath[0:-3] + '.xhtml'
+            htmlpath = filepath[0:-3] + XHTML_EXT
             # print("HTMLPATH", htmlpath)
 
             self.open_section(f"{section} {title}", self.project_directory, filepath[0:-3])
@@ -456,8 +429,6 @@ class TOCview(Gtk.ScrolledWindow):
 
             f.write('<div class="body">\n')
 
-        # shutil.rmtree(self.pdf_directory, True)
-        # os.mkdir(self.pdf_directory)
         os.chdir(self.pdf_directory)
 
         for it in scan:
@@ -554,8 +525,8 @@ class TOCview(Gtk.ScrolledWindow):
             c_opf = content_opf.format_map(argDict)
 
             imagedir = self.project_directory + "/_images"
-            list = os.listdir(imagedir)
-            for imagefile in list:
+            image_list = os.listdir(imagedir)
+            for imagefile in image_list:
                 imagename = imagefile.split('.')[0]
                 imagetype = imagefile.split('.')[-1]
                 # zf.write('{0}/{1}'.format(imagedir, imagefile), 'OEBPS/_images/{0}'.format(imagefile),
@@ -587,7 +558,6 @@ class TOCview(Gtk.ScrolledWindow):
 
             for it in scan:
                 filepath = self.toc_model.get_value(it[1], 1)
-                htmlpath = filepath[0:-3] + '.xhtml'
                 filename = filepath.split('/')[-1][0:-3]
                 c_opf += '    <itemref idref="{0}" />\n'.format(filename)
 
@@ -605,8 +575,7 @@ class TOCview(Gtk.ScrolledWindow):
             for it in scan:
                 title = escape(self.toc_model.get_value(it[1], 0))   # title may contain special character(s)
                 filepath = self.toc_model.get_value(it[1], 1)
-                htmlpath = filepath[0:-3] + '.xhtml'
-                filename = filepath.split('/')[-1][0:-3]
+                htmlpath = filepath[0:-3] + XHTML_EXT
                 toc_html += '            <li><a href="{0}">"{1}"</a></li>\n'.format(htmlpath, title)
 
             toc_html += toc_xhtml_end    # termination for toc.xhtml from XMLforEPUB.py
@@ -631,7 +600,7 @@ class TOCview(Gtk.ScrolledWindow):
             for it in scan:
                 title = escape(self.toc_model.get_value(it[1], 0))   # title may contain special character(s)
                 filepath = self.toc_model.get_value(it[1], 1)
-                htmlpath = filepath[0:-3] + '.xhtml'
+                htmlpath = filepath[0:-3] + XHTML_EXT
                 playOrder += 1
                 argDict = {'playOrder': playOrder,
                            'title': title,

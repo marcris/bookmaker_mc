@@ -12,7 +12,15 @@ Introduction
 
 How to install it?
 ------------
+Using poetry (https://python-poetry.org/)
+```txt
+git clone https://github.com/marcris/bookmaker_mc.git
+cd bookmaker_mc
+poetry build
+pip3 install dist/*.whl
+```
+Run using the command 'bm'.
 
 Links
 ------------
-* BookMaker Github repository including documentation <https://github.com/marcris/BookMaker>
+* BookMaker GitHub repository including documentation (in preparation) <https://github.com/marcris/BookMaker>
