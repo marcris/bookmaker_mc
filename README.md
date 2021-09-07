@@ -23,4 +23,4 @@ Run using the command 'bm'.
 
 Links
 ------------
-* BookMaker GitHub repository including documentation (in preparation) <https://github.com/marcris/BookMaker>
+* BookMaker GitHub repository including documentation (in preparation) <https://github.com/marcris/BookMaker_mc>
