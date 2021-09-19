@@ -157,11 +157,11 @@ class AppWindow(Gtk.ApplicationWindow):
         # SyncScroll(self.MV, self.PV)
 
         # Set up for File | Open recent...
-        settings = Gtk.Settings.get_default()
+        gsettings = Gtk.Settings.get_default()	# system's default settings
         # We're not using GTK's recent files mechanism
-        settings.set_property("gtk-recent-files-enabled", False)
+        gsettings.set_property("gtk-recent-files-enabled", False)
 
-        self.gsettings = self.TV.gsettings # BookMaker's private settings
+        self.gsettings = self.TV.gsettings	# BookMaker's private settings
         # Instead we'll keep a record in settings 'project-dirs'
         self.recentbooks = deque([], maxlen=9)
         self.recentbooks.extend(self.gsettings.get_value('project-dirs').unpack())
@@ -450,7 +450,11 @@ class AppWindow(Gtk.ApplicationWindow):
 
             images_directory = os.path.join(self.TV.project_directory, '_images')
 
-            # copy the file to the "_images" directory
+            # copy the file to the working images_directory (under project_directory)
+            shutil.copy(imagefilepath, images_directory)
+            # and to the final images_directory (under project_directory/book) which
+            # will be used in generating the book in whatever format.
+            images_directory = os.path.join(self.TV.project_directory, '_book/_images')
             shutil.copy(imagefilepath, images_directory)
 
             # this directory will be copied into the OEBPS directory of the epub, so we
@@ -462,11 +466,9 @@ class AppWindow(Gtk.ApplicationWindow):
             print(os.getcwd())
             #
             # NOTE: the .xhtml file structure (below project_directory/_book) must be
-            # kept parallel to the .md file structure (below project_directory).
-            relative = os.path.relpath(self.TV.project_directory, os.getcwd())
-            relative = os.path.join(relative, '_images')
-            print(relative)
-            print(self.TV.filename_tail)
+            # kept parallel to the .md file structure (below project_directory), so
+            # the xhtml can use relative addressing.
+            relative = os.path.relpath(images_directory, os.getcwd())
 
             self.MV.textbuffer.insert_at_cursor('![]({0}/{1})'.format(relative, os.path.split(imagefilepath)[1]))
 
