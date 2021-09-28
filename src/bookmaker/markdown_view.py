@@ -46,7 +46,7 @@ class MyRenderer(HTMLRenderer):
         if lang == 'mermaid':
             return '<div class="mermaid">'+code+'</div>'
         elif lang:
-            lexer = get_lexer_by_name(lang, stripall=True)
+            lexer = get_lexer_by_name(lang)#, stripall=True)
             formatter = html.HtmlFormatter()
             return highlight(code, lexer, formatter)
         else:
