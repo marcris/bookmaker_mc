@@ -4,7 +4,7 @@ import zipfile
 import codecs
 
 import shutil
-import datetime
+from datetime import datetime, timezone
 
 import uuid
 
@@ -398,6 +398,7 @@ class TOCview(Gtk.ScrolledWindow):
         # headings etc. and presenting the result to a suitable converter. Currently we use Prince
         # (www.princexml.com), although paged.js may be worth investigation.
 
+        self.pdf_directory = self.project_directory + "/_pdf"  # created/emptied if user does "export to pdf"
         with codecs.open('{0}/book.html'.format(self.pdf_directory), 'w') as f:
             f.write("<html>\n")
             f.write("<head>\n")
@@ -408,7 +409,7 @@ class TOCview(Gtk.ScrolledWindow):
                 author = data['author']
                 f.write(f'    <meta name="creator" content="{author}">\n')
                 f.write(f'    <meta name="author" content="{author}">\n')
-                date = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+                date = datetime.now(tz=timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
                 f.write(f'    <meta name="date" content={date}>\n')
 
             f.write('    <link rel = "stylesheet" href = "github-markdown.css" type = "text/css" />\n')
