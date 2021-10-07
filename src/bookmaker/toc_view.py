@@ -483,6 +483,7 @@ class TOCview(Gtk.ScrolledWindow):
 
         self.refresh_all()  # backs up the required stuff to _backup directory tree
         os.chdir(self.project_directory)
+        self.epub_directory = self.project_directory + "/_epub"  # created/emptied if user does "export to epub"
         shutil.rmtree(self.epub_directory, True)
         os.mkdir(self.epub_directory)
         os.chdir(self.epub_directory)
