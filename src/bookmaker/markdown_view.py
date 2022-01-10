@@ -52,6 +52,9 @@ class MyRenderer(HTMLRenderer):
         else:
             return escape(code)
 
+    def inline_html(self, html):
+        return html # i.e. literal html, not escaped
+
 
 class MARKDOWNview(Gtk.ScrolledWindow):
     # Define markdown processing with mistune 2 and Pygments

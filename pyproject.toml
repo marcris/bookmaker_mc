@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "bookmaker_mc"
 # keep in sync with bookmaker/__init__.py (setuptools >=46.4.0)
-version = "0.9.1rc2"
+version = "0.3.0"
 description = "A Book Authoring Application in Python"
 license = "MIT"
 authors = ["Chris Brown <chris@marcrisoft.co.uk>"]
@@ -22,7 +22,7 @@ python = "^3.8"
 
 PyGObject = { version = "^3.40" }
 Pygments = { version = "^2.9" }
-mistune = { git = "https://github.com/lepture/mistune.git", tag = "v2.0.0rc1" }
+mistune = { version = "^2.0.0rc1" }#git = "https://github.com/lepture/mistune.git", tag = "v2.0.0rc1" }
 tomlkit = "^0.7.2"
 
 [tool.poetry.dev-dependencies]

@@ -18,7 +18,7 @@
         <range min="1" max="15"/>
         <default>1</default>
         <summary>Some timeout</summary>
-        <description>Something will happed after that period</description>
+        <description>Something will happen after that period</description>
     </key>
 
     <key name="list-of-numbers" type="ai">

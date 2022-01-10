@@ -490,6 +490,8 @@ class TOCview(Gtk.ScrolledWindow):
 
         self.script_directory = self.book_directory + '/_script'
 
+
+
         # Create the epub file
         with zipfile.ZipFile('mybook.epub', mode='w') as zf:
             # Write the 'mimetype' file to it; note no newline, not compressed
