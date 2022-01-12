@@ -14,6 +14,13 @@ USCORE_PATTERN = (
     r'\b_(?=[^_])([\s\S]*?)_\b'
 )
 
+# Superscript pattern; allows text wrapped in ^ (circumflex). Text can
+# include any combination of whitespace & non-whitespace; just not the
+# circumflex, which terminates the pattern.
+SUP_PATTERN = (
+    r'\^([\s\S]*?)\^'
+)
+
 #: alternative image syntax::
 #  I don't understand all the regex; all I want is an alternative
 #  syntax to insert images inline with text, so just use # instead
@@ -31,6 +38,13 @@ def parse_uscore(self, m, state):
 def render_html_uscore(text):
     return '<u>' + text + '</u>'
 
+def parse_sup(self, m, state):
+    text = m.group(1)
+    return 'sup', self.render(text, state)
+
+def render_html_sup(text):
+    return '<sup>' + text + '</sup>'
+
 def parse_inline_image(self, m, state):
     text = m.group(1)
     link = m.group(2)
@@ -44,14 +58,18 @@ def plugin_my_extra(md):
     md.inline.register_rule(
         'uscore', USCORE_PATTERN, parse_uscore)
     md.inline.register_rule(
+        'sup', SUP_PATTERN, parse_sup)
+    md.inline.register_rule(
         'inline_image', INLINE_IMAGE_PATTERN, parse_inline_image)
 
     # allow for asterisk_emphasis only; subvert previous underscore_emphasis
     md.inline.rules.remove('underscore_emphasis')
     md.inline.rules.append('uscore')
+    md.inline.rules.append('sup')
 
     md.inline.rules.append('inline_image')
 
     if md.renderer.NAME == 'html':
         md.renderer.register('uscore', render_html_uscore)
+        md.renderer.register('sup', render_html_sup)
         md.renderer.register('inline_image', render_inline_image)
