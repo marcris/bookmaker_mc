@@ -1,6 +1,5 @@
 [tool.poetry]
 name = "bookmaker_mc"
-# keep in sync with bookmaker/__init__.py (setuptools >=46.4.0)
 version = "0.3.0"
 description = "A Book Authoring Application in Python"
 license = "MIT"
