@@ -6,7 +6,7 @@
 # or in setup.cfg
 
 from pathlib import Path
-import tomlkit
+import tomli  # will be import tomllib in Python 3.11
 
 from importlib.metadata import version
 
@@ -34,8 +34,8 @@ def main():
     global VERSION, DESCRIPTION
     pyproject_toml_path = Path('../../pyproject.toml')
     if pyproject_toml_path.exists():
-        with open(file=str(pyproject_toml_path)) as f:
-            pyproject_toml = tomlkit.parse(string=f.read())
+        with open(file=str(pyproject_toml_path), mode='rb') as pyproject_toml_file:
+            pyproject_toml = tomli.load(pyproject_toml_file)
             if 'tool' in pyproject_toml and 'poetry' in pyproject_toml['tool']:
                 VERSION = pyproject_toml['tool']['poetry']['version']
                 DESCRIPTION = pyproject_toml['tool']['poetry']['description']

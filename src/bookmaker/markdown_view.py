@@ -145,6 +145,7 @@ class MARKDOWNview(Gtk.ScrolledWindow):
         # The new text goes into the same textbuffer, so changes would be lost.
         if self.is_dirty:
             self.save(project_directory, filename_tail)
+            print(f'saved modified {project_directory}/{filename_tail}.md')
         else:
             print(f'Didn\'t bother saving unchanged {project_directory}/{filename_tail}.md')
 

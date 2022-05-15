@@ -4,6 +4,7 @@ import os
 import shutil
 import sys
 import platform
+import signal
 from collections import deque
 
 
@@ -34,7 +35,41 @@ from os.path import dirname
 def where_am_i():  # use to find ancillary files e.g. .glade files
     return dirname(__file__)
 
+
 UPSTART_LOGO = where_am_i() + '/logo.svg'
+
+
+class RecentBooksDialog(Gtk.Dialog):
+    def __init__(self, parent):
+        super().__init__(title="Choose from Recent Books", transient_for=parent, flags=0)
+        self.set_default_size(200, 200)
+        vbox = self.get_content_area()
+
+        self.parent = parent
+
+        for item in parent.recentbooks:
+            if os.path.exists(item):
+                button = Gtk.Button(item)
+                vbox.add(button)
+                button.connect("clicked", self.on_open_recent_book)
+
+        spacer = Gtk.Label("")
+        vbox.add(spacer)
+
+        button = Gtk.Button("... or some other book")
+        vbox.add(button)
+        button.connect("clicked", self.on_selectprojectfolder_clicked)
+
+        self.show_all()
+
+    def on_open_recent_book(self, button):
+        self.response(Gtk.ResponseType.OK)
+        self.parent.on_open_recent_book(button)
+
+    def on_selectprojectfolder_clicked(self, button):
+        self.response(Gtk.ResponseType.OK)
+        self.parent.on_selectprojectfolder_clicked()
+
 
 
 class AppWindow(Gtk.ApplicationWindow):
@@ -73,9 +108,25 @@ class AppWindow(Gtk.ApplicationWindow):
         self.MV.save_if_dirty(self.TV.project_directory, self.TV.filename_tail)
         return False  # means go ahead with the Gtk.main_quit action
 
+    def last_chance_saloon(self, signalnum, frame):
+        # Handler for SIGTERM which will save work as a last resort
+        # i.e. if user requests shutdown while there are edits outstanding.
+        self.out.write(f'signal {signalnum} received')
+        self.MV.save_if_dirty(self.TV.project_directory, self.TV.filename_tail)
+        self.out.write(f'calling original_handler')
+        self.out.flush()
+        self.original_handler(signalnum, frame)
+
     def __init__(self, app, *args, **kwargs):
         Gtk.Window.__init__(self, application=app)
         # super().__init__(app, **kwargs)
+
+        # Register handler for SIGTERM which will save work as a last resort
+        # i.e. if user requests shutdown while there are edits outstanding.
+        self.out = open('log.txt', 'w')
+
+        self.original_handler = signal.signal(signal.SIGHUP, self.last_chance_saloon)
+
         self.app = app
         self.connect('destroy', self.on_destroy)
         self.connect('delete-event', self.on_delete_event)
@@ -273,7 +324,7 @@ class AppWindow(Gtk.ApplicationWindow):
             print(f'Creating project {project_directory}')
             self.open_book_project(project_directory)
 
-    def on_selectprojectfolder_clicked(self, action, parameter):
+    def on_selectprojectfolder_clicked(self):
         print("selectprojectfolder clicked")
         with self.TV.choose_project_folder() as project_directory:
             if not project_directory:  # if file chooser returned None (Cancel) don't change anything
@@ -353,7 +404,7 @@ class AppWindow(Gtk.ApplicationWindow):
         menuitem.connect("activate", self.on_open_recent_book)
 
     def on_open_recent_book(self, parameter):
-        which_book = parameter.get_label() # parameter is the recent books submenu item clicked
+        which_book = parameter.get_label() # parameter is the recent books' submenu item clicked
         print(f'on_open_recent_book("{which_book}")')
         self.open_book_project(which_book)
 
@@ -513,37 +564,9 @@ class Application(Gtk.Application):
 
         self.window.show_all()
 
-        # dialog = Gtk.RecentChooserDialog(
-        #     title="Open Recent File",
-        #     parent=self.window,
-        #     recent_manager=self.window.recent_manager
-        # )
-        # dialog.add_buttons("Cancel", Gtk.ResponseType.CANCEL, "Ok", Gtk.ResponseType.OK)
-        #
-        # items = self.window.recent_manager.get_items()
-        # for i in items:
-        #     print(i.last_application())
-        #
-        # strings = dialog.get_uris()
-        # print(f'the recent strings are: {strings}')
-        #
-        # # Add a filter that will display all of the files in the dialog.
-        # filter = Gtk.RecentFilter.new()
-        # filter.set_name("BookMaker projects")
-        # filter.add_mime_type("inode/directory")
-        # filter.add_pattern("*")
-        # dialog.add_filter(filter)
-        # dialog.set_show_not_found(True)
-        # dialog.set_local_only(False)
-        # dialog.set_limit(10)
-        # dialog.set_sort_type(Gtk.RecentSortType.MRU)
-        # if dialog.run() == Gtk.ResponseType.OK:
-        #     filename = dialog.get_current_uri()
-        #     if filename != None:
-        #         self.window.on_selectprojectfolder_clicked
-        #     else:
-        #         print("The file '%s' could not be read!" % filename)
-        # dialog.destroy()
+        dialog =  RecentBooksDialog(self.window)
+        dialog.run()
+        dialog.destroy()
 
         dmx, dmy = self.window.get_size()
         print(f"Size = {dmx} x {dmy}")
