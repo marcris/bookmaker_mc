@@ -295,7 +295,7 @@ class AppWindow(Gtk.ApplicationWindow):
         self.add_action(as_text_action)
 
         # The "win.insert-image" action
-        image_action = Gio.SimpleAction.new("insert-image", None)
+        image_action = Gio.SimpleAction.new("insert_image", None)
         image_action.connect("activate", self.on_insert_image_clicked)
         self.add_action(image_action)
 
@@ -476,7 +476,7 @@ class AppWindow(Gtk.ApplicationWindow):
         self.MV.is_dirty = True
 
     def on_insert_image_clicked(self, action, parameter):
-
+        print(f'filename_path = {self.TV.filename_path}.md')
         dlg = Gtk.FileChooserDialog("Insert Image", self, Gtk.FileChooserAction.OPEN,
                                     (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
                                      Gtk.STOCK_OK, Gtk.ResponseType.OK))
@@ -499,13 +499,13 @@ class AppWindow(Gtk.ApplicationWindow):
         if response == Gtk.ResponseType.OK:
             imagefilepath = dlg.get_filename()  # actually gets the full path to the file
 
-            images_directory = os.path.join(self.TV.project_directory, '_images')
+            images_directory = os.path.join(self.TV.project_directory, '_images/')
 
             # copy the file to the working images_directory (under project_directory)
             shutil.copy(imagefilepath, images_directory)
-            # and to the final images_directory (under project_directory/book) which
+            # and to the final images_directory (under project_directory/_book) which
             # will be used in generating the book in whatever format.
-            images_directory = os.path.join(self.TV.project_directory, '_book/_images')
+            images_directory = os.path.join(self.TV.project_directory, '_book/_images/')
             shutil.copy(imagefilepath, images_directory)
 
             # this directory will be copied into the OEBPS directory of the epub, so we
@@ -513,13 +513,12 @@ class AppWindow(Gtk.ApplicationWindow):
 
             # Need to be in the current .md file's directory so the relative path will
             # work now in the preview as well as later in the epub file structure.
-            os.chdir(os.path.split(self.TV.filename_path)[0])
-            print(os.getcwd())
+            curr_md_dir = os.path.split(f'{self.TV.filename_path}.md')[0]
             #
             # NOTE: the .xhtml file structure (below project_directory/_book) must be
             # kept parallel to the .md file structure (below project_directory), so
             # the xhtml can use relative addressing.
-            relative = os.path.relpath(images_directory, os.getcwd())
+            relative = os.path.relpath(images_directory, curr_md_dir)
 
             self.MV.textbuffer.insert_at_cursor('![]({0}/{1})'.format(relative, os.path.split(imagefilepath)[1]))
 

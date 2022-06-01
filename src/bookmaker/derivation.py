@@ -23,6 +23,7 @@ def parse_derivation(self, m, state):
 
 def parse_derivation_list(self, text):
     # print("parse_derivation_list called")
+    global item_no
 
     cells = []  # the list of children of extend_start
     m = EXTEND_ITEM.match(text, 0)
@@ -33,12 +34,20 @@ def parse_derivation_list(self, text):
 
     text = EXTEND_ITEM.sub('', text, 1)
     while '\n' in text: # there is a following line
-        text = EXTEND_BULLET.sub('', text, 1)   # remove the bullet characters from text
-        m = EXTEND_ITEM.match(text, 0)          # extract the widget name
-        cells.append({
-            'type': 'extend_item_start',
-            'text': m.group(1),
-        })
+        if EXTEND_BULLET.match(text, 0):   # the line starts with the extend bullet
+            text = EXTEND_BULLET.sub('', text, 1)   # remove the bullet characters from text
+            m = EXTEND_ITEM.match(text, 0)          # extract the widget name
+            cells.append({
+                'type': 'extend_item_start',
+                'text': m.group(1),
+            })
+        else:
+            m = EXTEND_ITEM.match(text, 0)          # extract the widget name
+            cells.append({
+                'type': 'extend_item_same',
+                'text': m.group(1),
+            })
+
         text = EXTEND_ITEM.sub('', text, 1)     # remove the widget name from text
 
     # this is now the last line; just the bullet and widget name (no \n)
@@ -50,7 +59,7 @@ def parse_derivation_list(self, text):
     # print("parse_derivation_list exited")
     return cells
 
-item_no = 0
+item_no = 0     # used to control indentation in the list
 indent = 0
 
 def render_derivation_list(text):
@@ -68,7 +77,15 @@ def render_extend_item(item):
     global indent
     indent = 3*item_no
     item_no += 1
-    indent += 4*item_no
+    indent += 4*(item_no)
+
+    return "%s<span class='lineart'>╰──</span>%s\n" % (' '*indent, item)
+
+def render_extend_item_same(item):
+    global item_no
+    global indent
+    indent = 3*item_no
+    indent += 4*(item_no+1)
 
     return "%s<span class='lineart'>╰──</span>%s\n" % (' '*indent, item)
 
@@ -80,4 +97,5 @@ def plugin_derivation(md):
         md.renderer.register('extend_start', render_derivation_list)
         md.renderer.register('first_extend_item_start', render_first_extend_item)
         md.renderer.register('extend_item_start', render_extend_item)
+        md.renderer.register('extend_item_same', render_extend_item_same)
 

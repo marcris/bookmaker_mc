@@ -454,10 +454,12 @@ class TOCview(Gtk.ScrolledWindow):
                 section += '.' + sub5
 
             self.open_section(f"{section} {title}", self.project_directory, filepath[0:-3])
+            print(f'section {section}, sub={sub}, subsub={subsub}')
 
             with codecs.open(f'{self.pdf_directory}/book.html', 'a') as f:
                 if subsub=='0': # major topic
                 # if sub > '0' and subsub == '0':  # major topic
+                    print(f'Writing <div class="chapter">')
                     f.write('<div class="chapter">\n')
                 start = self.MV.textbuffer.get_start_iter()
                 end = self.MV.textbuffer.get_end_iter()
