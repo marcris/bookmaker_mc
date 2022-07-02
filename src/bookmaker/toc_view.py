@@ -275,23 +275,23 @@ class TOCview(Gtk.ScrolledWindow):
         # Current file details still held by TV (self)
         self.MV.save_if_dirty(self.project_directory, self.filename_tail)  # save the current changes, if any
 
-        # self.write_status_bar(
-
         self.project_directory = project_directory  # new file details belong to TV (self)
         self.filename_tail = filename_tail
-        try:
-            self.force_first_line(section)
-        except NameError as e:
-            # self.write_status_bar(
-            print(
-               "Failed to open/read {0}.md :- {1}".format(self.filename_path, e.args))
+
+        self.force_first_line(section)
 
     def force_first_line(self, section):
-        f = codecs.open("{0}.md".format(self.filename_path), 'r', encoding='utf-8')
-        f.readline()        # read and discard existing first line
-        text = f.read(-1)   # rest of the file
-        self.MV.textbuffer.set_text("# {0}\n{1}".format(section, text)) # generated first line replacement
-        f.close()
+        try:
+            text = ""
+            f = codecs.open("{0}.md".format(self.filename_path), 'r', encoding='utf-8')
+            f.readline()        # read and discard existing first line
+            text = f.read(-1)   # rest of the file
+        except NameError as e:
+            print(
+                "Failed to open/read {0}.md :- {1}".format(self.filename_path, e.args))
+        finally:
+            self.MV.textbuffer.set_text("# {0}\n{1}".format(section, text))  # generated first line replacement
+            f.close()
 
         self.MV.is_dirty = False
 
@@ -365,7 +365,7 @@ class TOCview(Gtk.ScrolledWindow):
         shutil.copy2(f'{self.project_directory}/book.json', f'{self.backup_directory}/book.json')
         shutil.copy2(f'{self.project_directory}/cover.png', f'{self.backup_directory}/cover.png')
 
-        shutil.copytree(f'_css', f'{self.backup_directory}/_css')
+        shutil.copytree(f'{self.project_directory}/_css', f'{self.backup_directory}/_css')
         shutil.copytree(f'{self.project_directory}/_images', f'{self.backup_directory}/_images')
 
         for it in scan:
@@ -530,16 +530,16 @@ class TOCview(Gtk.ScrolledWindow):
 
             c_opf = content_opf.format_map(argDict)
 
-            imagedir = self.project_directory + "/_images"
+            imagedir = self.project_directory + "/_book/_images"
             image_list = os.listdir(imagedir)
             for imagefile in image_list:
                 imagename = imagefile.split('.')[0]
                 imagetype = imagefile.split('.')[-1]
                 # zf.write('{0}/{1}'.format(imagedir, imagefile), 'OEBPS/_images/{0}'.format(imagefile),
-                zf.write('{0}/{1}'.format(imagedir, imagefile), 'OEBPS/_images/{0}'.format(imagefile),
+                zf.write('{0}/{1}'.format(imagedir, imagefile), 'OEBPS/_book/_images/{0}'.format(imagefile),
                                   compress_type=zipfile.ZIP_DEFLATED)
                 c_opf += '    <item id="{0}" href="{1}" media-type="image/{2}" />\n'.format(
-                    '{0}-{1}'.format(imagename, imagetype), '/_images/{0}'.format(imagefile), imagetype)
+                    '{0}-{1}'.format(imagename, imagetype), '/_book/_images/{0}'.format(imagefile), imagetype)
 
             # Insert the links to the HTML content files into the Manifest section of the content.opf
             scan = self.toc_scan()
