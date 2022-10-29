@@ -31,6 +31,13 @@ SUP_PATTERN = (
 INLINE_IMAGE_PATTERN = (
         r'#?\[([\s\S]*?)\]\(([A-Za-z0-9./_]+)\)')
 
+# I want to extend the facility for code highlighting to inline code.
+# This involves replacing the
+MY_CODESPAN_PATTERN = (
+    r'(`)([^ \n]*)(?: |/n)([\s\S.]*?)(?:`)'
+)
+
+
 def parse_uscore(self, m, state):
     text = m.group(1)
     return 'uscore', self.render(text, state)
@@ -50,9 +57,43 @@ def parse_inline_image(self, m, state):
     link = m.group(2)
     return 'inline_image', link, text
 
+def parse_my_codespan(self, m, state):
+    lang = m.group(2)
+    code = m.group(3)
+    print(f'parsing my_codespan as {lang}, {code}|')
+    return 'my_codespan', lang, code
+
 def render_inline_image(src, alt):
     s = '<img src="' + src + '" alt="' + alt + '" style="vertical-align:middle"'
     return s + ' />'
+
+from pygments import highlight
+from pygments.lexers import get_lexer_by_name
+from pygments.formatters import html
+
+class CodeHtmlFormatter(html.HtmlFormatter):
+
+    def wrap(self, source):
+        return self._wrap_code(source)
+
+    def _wrap_code(self, source):
+        # yield 0, '<code>'
+        for i, t in source:
+            if i == 1:
+                # it's a line of formatted code
+                t += '<br>'
+            yield i, t
+        # yield 0, '</code>'
+
+def render_my_codespan(lang, text):
+    print(f'rendering my_codespan ({lang}, {text})')
+    lexer = get_lexer_by_name(lang)  # , stripall=True)
+    formatter = html.HtmlFormatter(nowrap=True)
+    hl =  highlight(text, lexer, formatter)[0:-1]
+    print(repr(hl), '|')
+    print('---------')
+    return '<code>' + hl + '</code>'
+
 
 def plugin_my_extra(md):
     md.inline.register_rule(
@@ -61,11 +102,15 @@ def plugin_my_extra(md):
         'sup', SUP_PATTERN, parse_sup)
     md.inline.register_rule(
         'inline_image', INLINE_IMAGE_PATTERN, parse_inline_image)
+    md.inline.register_rule(
+        'my_codespan', MY_CODESPAN_PATTERN, parse_my_codespan)
 
     # allow for asterisk_emphasis only; subvert previous underscore_emphasis
     md.inline.rules.remove('underscore_emphasis')
+    md.inline.rules.remove('codespan')
     md.inline.rules.append('uscore')
     md.inline.rules.append('sup')
+    md.inline.rules.append('my_codespan')
 
     md.inline.rules.append('inline_image')
 
@@ -73,3 +118,4 @@ def plugin_my_extra(md):
         md.renderer.register('uscore', render_html_uscore)
         md.renderer.register('sup', render_html_sup)
         md.renderer.register('inline_image', render_inline_image)
+        md.renderer.register('my_codespan', render_my_codespan)

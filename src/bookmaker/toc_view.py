@@ -20,7 +20,7 @@ gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gio, GLib
 
 import subprocess
-import pathlib
+from . import about
 
 XHTML_EXT = '.xhtml'
 
@@ -291,6 +291,9 @@ class TOCview(Gtk.ScrolledWindow):
                 "Failed to open/read {0}.md :- {1}".format(self.filename_path, e.args))
         finally:
             self.MV.textbuffer.set_text("# {0}\n{1}".format(section, text))  # generated first line replacement
+
+            about.main()
+            self.main_window.set_title(f"{about.NAME} - {about.VERSION}\t\t\t\t\t\t{section}")
             f.close()
 
         self.MV.is_dirty = False
@@ -414,6 +417,9 @@ class TOCview(Gtk.ScrolledWindow):
 
             f.write('    <link rel = "stylesheet" href = "github-markdown.css" type = "text/css" />\n')
             f.write('    <link rel = "stylesheet" href = "github-pygments.css" type = "text/css" />\n')
+            f.write('    <script src = "file:/home/chris/MDProject/Code/programming-python-with-gtk-and-sqlite/_book/_script/mermaid.min.js" > < / script >')
+
+            f.write('    <script> mermaid.initialize({startOnLoad:true}); </script >')
             f.write("</head>\n")
 
         scan = self.toc_scan()  # we need a new generator
@@ -471,8 +477,14 @@ class TOCview(Gtk.ScrolledWindow):
         with codecs.open(f'{self.pdf_directory}/book.html', 'a') as f:
             f.write('</div>\n') # end of div class="body"
 
-        os.chdir(self.pdf_directory)
-        # subprocess.run("prince -s pdf-styles.css toc.html book.html -o builds/book.pdf", shell=True)
+        os.chdir(f'{self.pdf_directory}')  # run prince in the _pdf directory
+        # All image references in the html are of the form ../_images/<image file>,
+        # which points to <project_directory>/_images. However, during development
+        # these same references in the single .xhtml files point to
+        # <project_directory>/_book/_images. Therefore these two _image directories
+        # must be identical.
+        # The alternative would be to merge the "source" (markdown) and "target" (html)
+        # into the same directory.
         subprocess.run("prince -s pdf-styles.css book.html -o book.pdf", shell=True)
 
     def export_to_epub(self):

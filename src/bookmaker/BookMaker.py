@@ -210,7 +210,7 @@ class AppWindow(Gtk.ApplicationWindow):
         # Set up for File | Open recent...
         gsettings = Gtk.Settings.get_default()	# system's default settings
         # We're not using GTK's recent files mechanism
-        gsettings.set_property("gtk-recent-files-enabled", False)
+        # gsettings.set_property("gtk-recent-files-enabled", False)
 
         self.gsettings = self.TV.gsettings	# BookMaker's private settings
         # Instead we'll keep a record in settings 'project-dirs'
@@ -351,15 +351,15 @@ class AppWindow(Gtk.ApplicationWindow):
             raise FileNotFoundError(f'"{project_directory}" - no such book exists')
 
         self.project_directory = project_directory
-        self.book_directory = project_directory + "/_book"
+        self.book_directory = f"{project_directory}/_book"
 
         self.book_css_directory = os.path.join(self.book_directory, '_css')
         # If necessary, make the _book/_css directory and put our project css in it
         css_resources = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'css_resources')
         shutil.copytree(css_resources, self.book_css_directory, dirs_exist_ok=True)
 
-        self.epub_directory = project_directory + "/_epub"  # created/emptied if user does "export to epub"
-        self.pdf_directory = project_directory + "/_pdf"  # created/emptied if user does "export to pdf"
+        self.epub_directory = f"{project_directory}/_epub"  # created/emptied if user does "export to epub"
+        self.pdf_directory = f"{project_directory}/_pdf"    # created/emptied if user does "export to pdf"
 
         # The new directory/file details will belong to TV as convention
         self.TV.project_directory = project_directory
@@ -375,18 +375,44 @@ class AppWindow(Gtk.ApplicationWindow):
             shutil.copy(os.path.join(book_resources, 'README.md'), project_directory)
             shutil.copy(os.path.join(book_resources, 'SUMMARY.md'), project_directory)
 
-        print(f'Display the table of contents')
+        print('Display the table of contents')
         os.chdir(self.project_directory)  # Always work in the project directory
 
         opening_section = self.TV.table_of_contents()
         print(f'User asked to open {opening_section}')
 
-        self.set_title("BookMaker - " + project_directory)
+        self.set_title(f'BookMaker - {project_directory}')
 
         self.recentbooks.clear()    # clear and rebuild the deque
         self.recentbooks.extend(self.gsettings.get_value('project-dirs').unpack())
         if project_directory not in self.recentbooks:
             self.add_to_recentbooks(project_directory)
+
+        # Trial of Gtk.RecentManager
+        recent_mgr = Gtk.RecentManager.get_default()
+        recent_data = Gtk.RecentData()
+        recent_data.app_exec = "bm"
+        recent_data.app_name = "BookMaker"
+        recent_data.mime_type = "inode/directory"
+        recent_mgr.add_full(Gio.File.new_for_path(f'{project_directory}').get_uri(), recent_data)
+
+        # A Gtk.RecentInfo contains all the meta-data associated with an entry in the recently used files list.
+        for recent_info in recent_mgr.get_items():  # one from a list of Gtk.RecentInfo objects
+            if "BookMaker" in recent_info.get_applications():
+                if info := recent_info.get_application_info("BookMaker"):  # parameter is app_name
+                    # a tuple of app_exec, count, timestamp, e.g  ('recused demo', 5, 1658594295)
+                    print("\nApplication info for 'BookMaker'\n", info)
+
+                print("Description for 'BookMaker': ", recent_info.get_description())
+                print("The app's display name:             ", recent_info.get_display_name())
+                print("The app's short name:               ", recent_info.get_short_name())
+                print("Applications which registered file: ", recent_info.get_applications())
+                print("The file's MIME type:               ", recent_info.get_mime_type())
+                print("The file's URI:                     ", recent_info.get_uri())
+                print("Displayable version of its URI:     ", recent_info.get_uri_display())
+                print("Registration is_private to app:     ", recent_info.get_private_hint())
+                print("Registration is_local:              ", recent_info.is_local())
+
         self.MV.is_dirty = False  # DON'T write nothingness to SUMMARY.md !!!
 
         self.MV.textbuffer.begin_not_undoable_action()

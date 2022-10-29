@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf8 -*-
-
+import os
+import shutil
+from .toc_view import TOCview
 import codecs
 import gi
 
@@ -30,16 +32,20 @@ class MyRenderer(HTMLRenderer):
     # render images horizontally centered in the page
     # Note that the css class "center" is defined in each html file (see pre_view.py)
     def image(self, src, alt="", title=None):
-        s = '<img src="' + src + '" alt="' + alt + '" class="center"'
+        print(f'image_src: {src}')
+        print(f'image: {os.path.abspath(src)}')
+
+        shutil.copy2(os.path.abspath(src), "../../_backup/_images")
+
+        s = f'<img src="{src}" alt="{alt}" class="center"'
         if title:
-            s += ' title="' + escape_html(title) + '"'
-        return s + ' />'
+            s += f' title="{escape_html(title)}"'
+        return f'{s} />'
 
     def block_image(self, src, alt="", title=None):
-        s = '<img src="' + src + '" alt="' + alt + '" class="center"'
-        if title:
-            s += ' title="' + escape_html(title) + '"'
-        return s + ' />'
+        print(f'block_image: {os.path.abspath(src)}')
+
+        self.image(src, alt="", title=None)
 
     # render code blocks highlighted by Pygments
     def block_code(self, code, lang=None):

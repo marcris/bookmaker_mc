@@ -45,9 +45,11 @@ Building bookmaker_mc (0.6.0)
   - Building wheel
   - Built bookmaker_mc-0.6.0-py3-none-any.whl
 ```
-
-
-Run using the command 'bm'.
+Then
+```txt
+pip install dist/*.whl
+```
+and run using the command 'bm'.
 
 Links
 ------------
