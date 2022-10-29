@@ -32,7 +32,7 @@ INLINE_IMAGE_PATTERN = (
         r'#?\[([\s\S]*?)\]\(([A-Za-z0-9./_]+)\)')
 
 # I want to extend the facility for code highlighting to inline code.
-# This involves replacing the CODESPAN_PATTERN. My current attempts
+# This involves replacing the CODESPAN_PATTERN. My current attempt
 # works but invalidates the original syntax, requiring language to be
 # specified even if it's "text".
 MY_CODESPAN_PATTERN = ( # `<language code><space or newline><code>`
