@@ -41,5 +41,5 @@ def main():
                 DESCRIPTION = pyproject_toml['tool']['poetry']['description']
     else:
         # ... or using importlib.metadata.version once installed.
-        VERSION = version("bookmaker-mc")
+        VERSION = '0.9.0'#version("bookmaker-mc")
 

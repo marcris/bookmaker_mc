@@ -79,22 +79,19 @@ class CodeHtmlFormatter(html.HtmlFormatter):
         return self._wrap_code(source)
 
     def _wrap_code(self, source):
-        # yield 0, '<code>'
+        yield 0, '<code>'
         for i, t in source:
-            if i == 1:
-                # it's a line of formatted code
-                t += '<br>'
             yield i, t
-        # yield 0, '</code>'
+        yield 0, '</code>'
 
 def render_my_codespan(lang, text):
-    print(f'rendering my_codespan ({lang}, {text})')
+    print(f'rendering my_codespan ({"py"}, {text})')
     lexer = get_lexer_by_name(lang)  # , stripall=True)
     formatter = html.HtmlFormatter(nowrap=True)
-    hl =  highlight(text, lexer, formatter)[0:-1]
+    hl = highlight(text, lexer, formatter)[0:-1]
     print(repr(hl), '|')
-    print('---------')
-    return '<code>' + hl + '</code>'
+    # print('---------')
+    return f'<code>{hl}</code>'
 
 
 def plugin_my_extra(md):
