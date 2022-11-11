@@ -294,6 +294,16 @@ class AppWindow(Gtk.ApplicationWindow):
         as_text_action.connect("activate", self.on_as_text_clicked)
         self.add_action(as_text_action)
 
+        # The similar inline versions, using ~/.icons/icon_inline_py.png and
+        # ~/.icons/icon_inline_txt.png
+        as_inline_python_action = Gio.SimpleAction.new("as_inline_python", None)
+        as_inline_python_action.connect("activate", self.on_as_inline_python_clicked)
+        self.add_action(as_inline_python_action)
+
+        as_inline_text_action = Gio.SimpleAction.new("as_inline_text", None)
+        as_inline_text_action.connect("activate", self.on_as_inline_text_clicked)
+        self.add_action(as_inline_text_action)
+
         # The "win.insert-image" action
         image_action = Gio.SimpleAction.new("insert_image", None)
         image_action.connect("activate", self.on_insert_image_clicked)
@@ -499,6 +509,16 @@ class AppWindow(Gtk.ApplicationWindow):
     def on_as_text_clicked(self, action, parameter):
         print("as_text clicked")
         self.MV.wrap_selection("```text\n", "```")
+        self.MV.is_dirty = True
+
+    def on_as_inline_python_clicked(self, action, parameter):
+        print("as_inline_python clicked")
+        self.MV.wrap_selection("`py ", "`")
+        self.MV.is_dirty = True
+
+    def on_as_inline_text_clicked(self, action, parameter):
+        print("as_inline_text clicked")
+        self.MV.wrap_selection("`text ", "`")
         self.MV.is_dirty = True
 
     def on_insert_image_clicked(self, action, parameter):

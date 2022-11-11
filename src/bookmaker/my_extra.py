@@ -62,7 +62,7 @@ def parse_inline_image(self, m, state):
 def parse_my_codespan(self, m, state):
     lang = m.group(2)
     code = m.group(3)
-    print(f'parsing my_codespan as {lang}, {code}|')
+    # print(f'parsing my_codespan as {lang}, {code}|')
     return 'my_codespan', lang, code
 
 def render_inline_image(src, alt):
@@ -85,11 +85,11 @@ class CodeHtmlFormatter(html.HtmlFormatter):
         yield 0, '</code>'
 
 def render_my_codespan(lang, text):
-    print(f'rendering my_codespan ({"py"}, {text})')
+    # print(f'rendering my_codespan ({"py"}, {text})')
     lexer = get_lexer_by_name(lang)  # , stripall=True)
     formatter = html.HtmlFormatter(nowrap=True)
     hl = highlight(text, lexer, formatter)[0:-1]
-    print(repr(hl), '|')
+    # print(repr(hl), '|')
     # print('---------')
     return f'<code>{hl}</code>'
 

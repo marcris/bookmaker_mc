@@ -292,7 +292,8 @@ class TOCview(Gtk.ScrolledWindow):
         finally:
             self.MV.textbuffer.set_text("# {0}\n{1}".format(section, text))  # generated first line replacement
 
-            about.main()
+            # about.main()  should have been called from init.py, so the
+            # info we require should already be set.
             self.main_window.set_title(f"{about.NAME} - {about.VERSION}\t\t\t\t\t\t{section}")
             f.close()
 

@@ -8,7 +8,7 @@
 from pathlib import Path
 import tomli  # will be import tomllib in Python 3.11
 
-from importlib.metadata import version
+from importlib_metadata import version
 
 NAME = 'BookMaker'
 # Single-source the project version from pyproject.toml
@@ -33,7 +33,9 @@ def main():
     # either from pyproject.toml during development ...
     global VERSION, DESCRIPTION
     pyproject_toml_path = Path('../../pyproject.toml')
+    print(f'pyproject_toml_path = {pyproject_toml_path}')
     if pyproject_toml_path.exists():
+        print("Getting version from pyproject.toml")
         with open(file=str(pyproject_toml_path), mode='rb') as pyproject_toml_file:
             pyproject_toml = tomli.load(pyproject_toml_file)
             if 'tool' in pyproject_toml and 'poetry' in pyproject_toml['tool']:
@@ -41,5 +43,7 @@ def main():
                 DESCRIPTION = pyproject_toml['tool']['poetry']['description']
     else:
         # ... or using importlib.metadata.version once installed.
-        VERSION = '0.9.0'#version("bookmaker-mc")
+        print("Getting version from importlib.metadata")
+        VERSION = version("bookmaker-mc")
+
 

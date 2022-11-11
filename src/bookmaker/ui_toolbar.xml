@@ -179,6 +179,32 @@
       </packing>
     </child>
     <child>
+      <object class='GtkToolButton' id='toolbutton_inline_python'>
+        <property name='visible'>True</property>
+        <property name='can_focus'>False</property>
+        <property name='tooltip_text' translatable='yes'>Selection as inline Python code</property>
+        <property name='action_name'>win.as_inline_python</property>
+        <property name='icon_name'>icon_inline_py</property>
+      </object>
+      <packing>
+        <property name='expand'>False</property>
+        <property name='homogeneous'>True</property>
+      </packing>
+    </child>
+    <child>
+      <object class='GtkToolButton' id='toolbutton_inline_text'>
+        <property name='visible'>True</property>
+        <property name='can_focus'>False</property>
+        <property name='tooltip_text' translatable='yes'>Selection as inline plain text</property>
+        <property name='action_name'>win.as_inline_text</property>
+        <property name='icon_name'>icon_inline_txt</property>
+      </object>
+      <packing>
+        <property name='expand'>False</property>
+        <property name='homogeneous'>True</property>
+      </packing>
+    </child>
+    <child>
       <object class='GtkSeparatorToolItem'>
         <property name='draw'>True</property>
       </object>
