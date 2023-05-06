@@ -140,7 +140,7 @@ class TOCview(Gtk.ScrolledWindow):
         # just compile it into current directory.
         try:
             print("compiling gsettings schema")
-            subprocess.check_call(f'glib-compile-schemas .', shell=True)
+            subprocess.check_call('glib-compile-schemas .', shell=True)
         except subprocess.CalledProcessError:
             print ("compile didn't work")
             return None
@@ -396,20 +396,23 @@ class TOCview(Gtk.ScrolledWindow):
             os.makedirs(os.path.dirname(backup_html), exist_ok=True)    # creates intermediate directories if missing
             shutil.copy2(current_html, backup_html)
 
-    def export_to_pdf(self):
+    def export_to_pdf(self):  # sourcery skip: extract-duplicate-method, extract-method, low-code-quality
         # Export to pdf is done by combining all the .xhtml files of the book into one file
         # called book.html, including additions like the pdf meta-data, generated chapter/section
         # headings etc. and presenting the result to a suitable converter. Currently we use Prince
         # (www.princexml.com), although paged.js may be worth investigation.
 
-        self.pdf_directory = self.project_directory + "/_pdf"  # created/emptied if user does "export to pdf"
+        self.pdf_directory = f"{self.project_directory}/_pdf"
+        # created/emptied if user does "export to pdf"
+        os.chdir(self.pdf_directory)
         with codecs.open('{0}/book.html'.format(self.pdf_directory), 'w') as f:
+            f.write("<!DOCTYPE html>\n")
             f.write("<html>\n")
             f.write("<head>\n")
-            f.write('    <meta charset="utf-8" />')
-            with open(self.project_directory + '/book.json') as j:
+            f.write('    <meta charset="utf-8" />\n')
+            with open(f'{self.project_directory}/book.json') as j:
                 data = json.load(j)
-                f.write(f"    <title> {data['title']}\n </title>\n")
+                f.write(f"    <title> {data['title']} </title>\n")
                 author = data['author']
                 f.write(f'    <meta name="creator" content="{author}">\n')
                 f.write(f'    <meta name="author" content="{author}">\n')
@@ -418,9 +421,9 @@ class TOCview(Gtk.ScrolledWindow):
 
             f.write('    <link rel = "stylesheet" href = "github-markdown.css" type = "text/css" />\n')
             f.write('    <link rel = "stylesheet" href = "github-pygments.css" type = "text/css" />\n')
-            f.write('    <script src = "file:/home/chris/MDProject/Code/programming-python-with-gtk-and-sqlite/_book/_script/mermaid.min.js" > < / script >')
-
-            f.write('    <script> mermaid.initialize({startOnLoad:true}); </script >')
+            f.write('    <script src = "file:/home/chris/MDProject/Code/programming-python-with-gtk-and-sqlite/_book/_script/mermaid.min.js"></script>\n')
+            f.write('    <script> mermaid.initialize({startOnLoad:true}) </script>\n')
+            f.write('    <link rel = "stylesheet" href = "pdf_styles.css" type = "text/css" />\n')
             f.write("</head>\n")
 
         scan = self.toc_scan()  # we need a new generator
@@ -428,13 +431,11 @@ class TOCview(Gtk.ScrolledWindow):
         print("Exporting to PDF")
         with codecs.open(f'{self.pdf_directory}/book.html', 'a') as f:
             f.write('<body>\n')
-            f.write('<div class="frontcover">\n')
-            f.write('</div>\n')
-            f.write('<br/>\n')
-            f.write('<br/>\n')
-            f.write('<br/>\n')
-            f.write('<br/>\n')
+            with codecs.open(f'{self.pdf_directory}/btoc.html', 'r') as g:
+                for line in g:
+                    f.write(line)
 
+            f.write('<br/>\n')  # because if not we will start the body on a left page
             f.write('<div class="body">\n')
 
         os.chdir(self.pdf_directory)
@@ -448,45 +449,67 @@ class TOCview(Gtk.ScrolledWindow):
             subsubsub = str(self.toc_model.get_value(it[1], 5))
             subsubsubsub = str(self.toc_model.get_value(it[1], 6))
             sub5 = str(self.toc_model.get_value(it[1], 7))
+            level = 0
 
             if sub > '0':
-                section += '.' + sub
+                section += f'.{sub}'
+                level += 1
             if subsub > '0':
-                section += '.' + subsub
+                section += f'.{subsub}'
+                level += 1
             if subsubsub > '0':
-                section += '.' + subsubsub
+                section += f'.{subsubsub}'
+                level += 1
             if subsubsubsub > '0':
-                section += '.' + subsubsubsub
+                section += f'.{subsubsubsub}'
+                level += 1
             if sub5 > '0':
-                section += '.' + sub5
+                section += f'.{sub5}'
+                level += 1
 
-            self.open_section(f"{section} {title}", self.project_directory, filepath[0:-3])
-            print(f'section {section}, sub={sub}, subsub={subsub}')
+            self.open_section(f"{section} {title}", self.project_directory, filepath[:-3])
+            print(f'section {section}, sub={sub}, subsub={subsub}, subsubsub={subsubsub}')
 
             with codecs.open(f'{self.pdf_directory}/book.html', 'a') as f:
-                if subsub=='0': # major topic
+                if subsubsubsub=='0': # major topic
                 # if sub > '0' and subsub == '0':  # major topic
-                    print(f'Writing <div class="chapter">')
-                    f.write('<div class="chapter">\n')
+                    print('Writing <div class="chapter">')
+                    f.write(f'<div id="ch{section}" class="chapter">\n')
                 start = self.MV.textbuffer.get_start_iter()
                 end = self.MV.textbuffer.get_end_iter()
                 f.write(self.MV.markdown(self.MV.textbuffer.get_text(start, end, False)))
                 # if sub > '0' and subsub == '0':  # major topic
-                if subsub=='0':
+                if subsubsubsub=='0':
                     f.write('</div>\n')
+
+                # if subsubsubsub=='0':   # x.y.z or lower level
+                #     with codecs.open(f'{self.pdf_directory}/table_of_contents.html', 'a') as g:
+                #         if level > current_level:
+                #             g.write('<ul>\n')
+                #         elif level < current_level:
+                #             g.write('</ul>\n')
+                #         g.write(f'<li><a href="#ch{section}">{section} {title}</a></li>\n')
+                #         current_level = level
 
         with codecs.open(f'{self.pdf_directory}/book.html', 'a') as f:
             f.write('</div>\n') # end of div class="body"
+            f.write('</html>\n') # end of html
 
+        # with codecs.open(f'{self.pdf_directory}/table_of_contents.html', 'a') as g:
+        #     g.write('</ul>>\n')
+        #
         os.chdir(f'{self.pdf_directory}')  # run prince in the _pdf directory
         # All image references in the html are of the form ../_images/<image file>,
         # which points to <project_directory>/_images. However, during development
         # these same references in the single .xhtml files point to
-        # <project_directory>/_book/_images. Therefore these two _image directories
+        # <project_directory>/_book/_images. Therefore, these two _image directories
         # must be identical.
         # The alternative would be to merge the "source" (markdown) and "target" (html)
         # into the same directory.
-        subprocess.run("prince -s pdf-styles.css book.html -o book.pdf", shell=True)
+        subprocess.run("prince "
+                       "frontmatter.html btoc.html "
+                       "-s pdf_styles.css book.html -o book.pdf", shell=True)
+
 
     def export_to_epub(self):
         def escape(t):

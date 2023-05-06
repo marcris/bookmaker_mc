@@ -1,4 +1,5 @@
 import re
+from mistune.util import escape, escape_html
 
 __all__ = ['plugin_my_extra']
 
@@ -38,7 +39,6 @@ INLINE_IMAGE_PATTERN = (
 MY_CODESPAN_PATTERN = ( # `<language code><space or newline><code>`
     r'(`)([^ \n]*)(?: |/n)([\s\S.]*?)(?:`)'
 )
-
 
 def parse_uscore(self, m, state):
     text = m.group(1)
@@ -93,6 +93,16 @@ def render_my_codespan(lang, text):
     # print('---------')
     return f'<code>{hl}</code>'
 
+def render_my_block_code(self, code, info=None):
+    html = '<code'
+    if info is not None:
+        info = info.strip()
+    if info:
+        lang = info.split(None, 1)[0]
+        lang = escape_html(lang)
+        html += ' class="language-' + lang + '"'
+    return f'{html}>{escape(code)}' + '</code>\n'
+
 
 def plugin_my_extra(md):
     md.inline.register_rule(
@@ -110,7 +120,6 @@ def plugin_my_extra(md):
     md.inline.rules.append('uscore')
     md.inline.rules.append('sup')
     md.inline.rules.append('my_codespan')
-
     md.inline.rules.append('inline_image')
 
     if md.renderer.NAME == 'html':

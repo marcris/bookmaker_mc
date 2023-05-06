@@ -2,7 +2,10 @@
 # -*- coding: utf8 -*-
 import os
 import shutil
-from .toc_view import TOCview
+
+from mistune import create_markdown
+
+# from .toc_view import TOCview
 import codecs
 import gi
 
@@ -12,10 +15,12 @@ gi.require_version('Gtk', '3.0')
 gi.require_version('GtkSource', '3.0')
 from gi.repository import Gtk, Gdk, Pango, GtkSource
 
-from mistune import *
+from mistune.util import escape, escape_html
+
 from pygments import highlight
 from pygments.lexers import get_lexer_by_name
 from pygments.formatters import html
+from mistune.renderers import HTMLRenderer
 
 from .derivation import plugin_derivation
 from .my_extra import plugin_my_extra
@@ -23,6 +28,36 @@ from .my_table import plugin_my_table
 from .my_footnotes import plugin_my_footnotes
 
 item_no = 0
+
+class MyHtmlFormatter(html.HtmlFormatter):
+
+    def __init__(self):
+        super(MyHtmlFormatter, self).__init__()
+
+    def wrap(self, source):
+        """
+        Wrap the ``source``, which is a generator yielding
+        individual lines, in custom generators. See docstring
+        for `format`. Can be overridden.
+        """
+
+        output = source
+        if self.wrapcode:
+            output = self._wrap_code(output)
+
+        # output = self._wrap_pre(output)
+
+        return output
+
+    def _wrap_code(self, source):
+        yield 0, '<code>'
+        for i, t in source:
+            if i == 1:
+                # it's a line of formatted code
+                t += '<br>'
+            yield i, t
+        yield 0, '</code>'
+
 
 class MyRenderer(HTMLRenderer):
 
@@ -50,13 +85,28 @@ class MyRenderer(HTMLRenderer):
     # render code blocks highlighted by Pygments
     def block_code(self, code, lang=None):
         if lang == 'mermaid':
-            return '<div class="mermaid">'+code+'</div>'
+            return f'<div class="mermaid">{code}</div>'
         elif lang:
             lexer = get_lexer_by_name(lang)#, stripall=True)
-            formatter = html.HtmlFormatter()
-            return highlight(code, lexer, formatter)
+            formatter = my_block_code_formatter()
+            return f'{highlight(code, lexer, formatter)}'
         else:
             return escape(code)
+
+class my_block_code_formatter(html.HtmlFormatter):
+
+    def wrap(self, source):
+        return self._wrap_code(source)
+
+    def _wrap_code(self, source):  # sourcery skip: yield-from
+        # yield 0, '<code>'
+        for i, t in source:
+            # if i == 1:
+            #     # it's a line of formatted code
+            #     t += '<br>'
+            yield i, t
+        # yield 0, '</code>'
+
 
     def inline_html(self, html):
         return html # i.e. literal html, not escaped
@@ -96,7 +146,7 @@ class MARKDOWNview(Gtk.ScrolledWindow):
         self.textview.connect("key_press_event", self.on_key_function)
 
         # Use a nice monospace font
-        fontdesc = Pango.FontDescription("monospace 10")
+        fontdesc = Pango.FontDescription.from_string("monospace 10")
         self.textview.modify_font(fontdesc)
 
         self.textview.set_size_request(80, 768)
@@ -133,8 +183,8 @@ class MARKDOWNview(Gtk.ScrolledWindow):
     def save(self, project_directory, filename_tail):
         # The file details supplied are of the file to be saved. TV's file details are not relevant
         try:
-            print ("Saving " + project_directory + "/" + filename_tail + ".md")
-            with codecs.open(project_directory + "/" + filename_tail + ".md", "w") as f:
+            print(f"Saving {project_directory}/{filename_tail}.md")
+            with codecs.open(f"{project_directory}/{filename_tail}.md", "w") as f:
                 start = self.textbuffer.get_start_iter()
                 end = self.textbuffer.get_end_iter()
                 f.write(self.textbuffer.get_text(start, end, False))
@@ -143,7 +193,11 @@ class MARKDOWNview(Gtk.ScrolledWindow):
             self.PV.save_rendered_html(project_directory, filename_tail)
 
         except Exception as e:
-            print ("Failed to write modified {0}".format(project_directory + "/" + filename_tail + ".md"))
+            print(
+                "Failed to write modified {0}".format(
+                    f"{project_directory}/{filename_tail}.md"
+                )
+            )
             print (repr(e))
 
     def save_if_dirty(self, project_directory, filename_tail):
@@ -163,7 +217,7 @@ class MARKDOWNview(Gtk.ScrolledWindow):
         except ValueError:
             print("No selection")
         else:
-            end_mark = self.textbuffer.create_mark(None, end_iter)
+            end_mark = self.textbuffer.create_mark(None, end_iter, left_gravity=False)
             self.textbuffer.insert(start_iter, start_wrapper)
             end_iter = self.textbuffer.get_iter_at_mark(end_mark)
             self.textbuffer.insert(end_iter, end_wrapper)
@@ -173,7 +227,9 @@ class MARKDOWNview(Gtk.ScrolledWindow):
  
 
     def on_key_function(self, widget, event):
-        keyname = Gdk.keyval_name(event.keyval)
+        pass
+
+        # keyname = Gdk.keyval_name(event.keyval)
         # print "Key %s (%d) was pressed" % (keyname, event.keyval)
         # if event.state & gtk.gdk.CONTROL_MASK:
         #     print "Control was being held down"

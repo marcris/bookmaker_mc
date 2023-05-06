@@ -1,13 +1,13 @@
 [tool.poetry]
 name = "bookmaker_mc"
-version = "0.10.0"
+version = "0.12.0"
 description = "A Book Authoring Application in Python"
 license = "MIT"
 authors = ["Chris Brown <chris@marcrisoft.co.uk>"]
 readme = "README.md"
 repository = "https://github.com/marcris/bookmaker-mc"
 classifiers = [
-    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.10",
     "Development Status :: 4 - Beta",
     "Intended Audience :: End Users/Desktop"
 ]

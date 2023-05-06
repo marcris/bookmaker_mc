@@ -31,7 +31,13 @@ html_header2 = """
     .inline {
         display:inline;
     }
-    code {
+/* Specify styling for highlighted passages ( <div class="highlight"> ). */
+.highlight {
+	font-size: 8pt; line-height: 120%;
+	/* Hide any line-overflow text */
+	white-space: pre-line; overflow: hidden;
+}
+code {
         background-color: #e6e6e6;
     }        
     table, th, td {
@@ -94,6 +100,7 @@ class PREview(WebKit2.WebView):
             self.syncscroll_instance.on_inscroll_adj_value_changed(0)
             # print('Load finished', the_webview)
 
+    @staticmethod
     def print_caller_name(stack_size=3):
         def wrapper(fn):
             def inner(*args, **kwargs):
