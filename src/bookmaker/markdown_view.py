@@ -58,7 +58,6 @@ class MyHtmlFormatter(html.HtmlFormatter):
             yield i, t
         yield 0, '</code>'
 
-
 class MyRenderer(HTMLRenderer):
 
     def __init__(self):
@@ -88,7 +87,7 @@ class MyRenderer(HTMLRenderer):
             return f'<div class="mermaid">{code}</div>'
         elif lang:
             lexer = get_lexer_by_name(lang)#, stripall=True)
-            formatter = my_block_code_formatter()
+            formatter = MyHtmlFormatter()
             return f'{highlight(code, lexer, formatter)}'
         else:
             return escape(code)
