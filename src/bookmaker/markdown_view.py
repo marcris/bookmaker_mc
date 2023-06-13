@@ -26,6 +26,7 @@ from .derivation import plugin_derivation
 from .my_extra import plugin_my_extra
 from .my_table import plugin_my_table
 from .my_footnotes import plugin_my_footnotes
+from .my_image import plugin_my_image
 
 item_no = 0
 
@@ -154,7 +155,7 @@ class MARKDOWNview(Gtk.ScrolledWindow):
         self.markdown = create_markdown(
             escape=True,
             renderer=MyRenderer(),
-            plugins=['url', 'strikethrough', plugin_my_footnotes, plugin_my_table, plugin_derivation, plugin_my_extra],
+            plugins=['url', 'strikethrough', plugin_my_image, plugin_my_footnotes, plugin_my_table, plugin_derivation, plugin_my_extra],
             # Note: 'derivation' and 'my_extra' added for this application; others are standard
             # in mistune 2.
             # Note 2: Added plugin_my_table in place of the standard one so I can modify the

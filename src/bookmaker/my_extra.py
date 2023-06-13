@@ -66,7 +66,7 @@ def parse_my_codespan(self, m, state):
     return 'my_codespan', lang, code
 
 def render_inline_image(src, alt):
-    s = '<img src="' + src + '" alt="' + alt + '" style="vertical-align:middle"'
+    s = f'<img src="{src}" alt="{alt}" style="vertical-align:top"'
     return s + ' />'
 
 from pygments import highlight

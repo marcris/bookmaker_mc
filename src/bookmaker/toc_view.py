@@ -314,14 +314,14 @@ class TOCview(Gtk.ScrolledWindow):
                     '    ' * it[0],
                     self.toc_model.get_value(it[1], 0),  # the section title
                     self.toc_model.get_value(it[1], 1)))  # the file path
-                    
+
     def insert_inline_toc(self):
         with open(os.path.join(self.project_directory, '_book/TOC.html'), 'w') as f:
             f.write("<html>")
             f.write("<head>")
             f.write("</head>")
             f.write("<body>")
-            
+
             f.write("<h1>Contents</h1>")
             f.write('<pre>')
 
@@ -344,15 +344,62 @@ class TOCview(Gtk.ScrolledWindow):
                     section += '.' + subsubsubsub
                 if sub5 > '0':
                     section += '.' + sub5
-                                        
+
                 if sub == '0':
-                    f.write('\n')   # Blank line before top-level sections
+                    f.write('\n')  # Blank line before top-level sections
                 # N.B. the next line MUST have <space><space><newline> to
                 # get correct line breaks in the HTML.
                 f.write("{0}    {1}  \n".format(section, self.toc_model.get_value(it[1], 0)))
-                
+
             f.write('</pre></body></html>')
-            
+
+    def generate_btoc_html(self):
+        with open(os.path.join(self.project_directory, '_pdf/btoc.html'), 'w') as f:
+            f.write('<div class="contents">\n')
+            f.write('<h1>Programming Python with GTK and SQLite</h1>\n')
+            f.write('<h2>Contents</h2>\n')
+            f.write('<ul class="toc">\n')
+
+            level = 0
+
+            scan = self.toc_scan()  # we need a new generator
+            for it in scan:
+                previous_level = level
+                level = 0
+                section = str(self.toc_model.get_value(it[1], 2))
+                sub = str(self.toc_model.get_value(it[1], 3))
+                subsub = str(self.toc_model.get_value(it[1], 4))
+                subsubsub = str(self.toc_model.get_value(it[1], 5))
+                subsubsubsub = str(self.toc_model.get_value(it[1], 6))
+                sub5 = str(self.toc_model.get_value(it[1], 7))
+
+                if sub > '0':
+                    level += 1
+                    section += f'.{sub}'
+                if subsub > '0':
+                    level += 1
+                    section += f'.{subsub}'
+                if subsubsub > '0':
+                    level += 1
+                    section += f'.{subsubsub}'
+                if subsubsubsub > '0':
+                    level += 1
+                    section += f'.{subsubsubsub}'
+                if sub5 > '0':
+                    level += 1
+                    section += f'.{sub5}'
+
+                if level > previous_level:
+                    f.write('<ul>\n')
+                elif level < previous_level:
+                    f.write('</ul>\n')
+
+                f.write(
+                    f'<li><a href="#ch{section}">{section} {self.toc_model.get_value(it[1], 0)}</a></li>\n')
+
+            f.write('</ul>\n')
+            f.write('</ul>\n')
+            f.write('</div>\n')
 
     def refresh_all(self):
         # Used by export_to_epub().
@@ -436,6 +483,7 @@ class TOCview(Gtk.ScrolledWindow):
                     f.write(line)
 
             f.write('<br/>\n')  # because if not we will start the body on a left page
+            f.write('<br/>\n')  # because if not we will start the body on a left page
             f.write('<div class="body">\n')
 
         os.chdir(self.pdf_directory)
@@ -470,34 +518,29 @@ class TOCview(Gtk.ScrolledWindow):
             self.open_section(f"{section} {title}", self.project_directory, filepath[:-3])
             print(f'section {section}, sub={sub}, subsub={subsub}, subsubsub={subsubsub}')
 
+
             with codecs.open(f'{self.pdf_directory}/book.html', 'a') as f:
-                if subsubsubsub=='0': # major topic
-                # if sub > '0' and subsub == '0':  # major topic
+                # Top-level sections(numbered 1, 2, 3 etc) should always start on a right-hand page.
+                # This is arranged by generating the following empty <div> in conjunction with the
+                # CSS  .h1_top_level {break-before: right;} in pdf_styles.css.
+                if sub == '0':
+                    f.write('<div class="h1_top_level" />')
+
+                if subsubsubsub=='0': # TOC to include levels 1-4
                     print('Writing <div class="chapter">')
                     f.write(f'<div id="ch{section}" class="chapter">\n')
+                # Now get the markdown content of the section and generate the (x)html.
                 start = self.MV.textbuffer.get_start_iter()
                 end = self.MV.textbuffer.get_end_iter()
                 f.write(self.MV.markdown(self.MV.textbuffer.get_text(start, end, False)))
-                # if sub > '0' and subsub == '0':  # major topic
+                # Close the <div> for the TOC
                 if subsubsubsub=='0':
                     f.write('</div>\n')
-
-                # if subsubsubsub=='0':   # x.y.z or lower level
-                #     with codecs.open(f'{self.pdf_directory}/table_of_contents.html', 'a') as g:
-                #         if level > current_level:
-                #             g.write('<ul>\n')
-                #         elif level < current_level:
-                #             g.write('</ul>\n')
-                #         g.write(f'<li><a href="#ch{section}">{section} {title}</a></li>\n')
-                #         current_level = level
 
         with codecs.open(f'{self.pdf_directory}/book.html', 'a') as f:
             f.write('</div>\n') # end of div class="body"
             f.write('</html>\n') # end of html
 
-        # with codecs.open(f'{self.pdf_directory}/table_of_contents.html', 'a') as g:
-        #     g.write('</ul>>\n')
-        #
         os.chdir(f'{self.pdf_directory}')  # run prince in the _pdf directory
         # All image references in the html are of the form ../_images/<image file>,
         # which points to <project_directory>/_images. However, during development
@@ -507,7 +550,7 @@ class TOCview(Gtk.ScrolledWindow):
         # The alternative would be to merge the "source" (markdown) and "target" (html)
         # into the same directory.
         subprocess.run("prince "
-                       "frontmatter.html btoc.html "
+                       "frontmatter.html "  # Note btoc.html has been copied into book.html
                        "-s pdf_styles.css book.html -o book.pdf", shell=True)
 
 

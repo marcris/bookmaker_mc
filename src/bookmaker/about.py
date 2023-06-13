@@ -13,8 +13,8 @@ from importlib_metadata import version
 NAME = 'BookMaker'
 # Single-source the project version from pyproject.toml
 VERSION = 'Unknown'
-COPYRIGHT = 'Copyright © 2021 Chris Brown and Marcris Software'
-DESCRIPTION = 'A Book Authoring Application in Python - inspired by Gitbook-Legacy'
+COPYRIGHT = 'Copyright © 2023 Chris Brown and Marcris Software'
+DESCRIPTION = 'A Book Authoring Application in Python'
 AUTHORS = [
     'Chris Brown <chris@marcrisoft.co.uk>'
 ]

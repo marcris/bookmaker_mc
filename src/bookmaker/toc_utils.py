@@ -97,7 +97,7 @@ def table_of_contents(self):
 
     self.tvcolumn.set_cell_data_func(self.cell, celldatafunction)
 
-    self.insert_inline_toc()
+    # self.insert_inline_toc()  # Now done in export_to_pdf
 
     # opening_section = self.cell.get_property('text')
     opening_section = self.toc_model.get_value(it, 2)

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "bookmaker_mc"
-version = "0.12.0"
+version = "0.14.0"
 description = "A Book Authoring Application in Python"
 license = "MIT"
 authors = ["Chris Brown <chris@marcrisoft.co.uk>"]

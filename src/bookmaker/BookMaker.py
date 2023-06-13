@@ -7,6 +7,8 @@ import platform
 import signal
 from collections import deque
 
+from summary_as_db import readit
+
 
 print('')
 print('Now in BookMaker.py')
@@ -391,6 +393,11 @@ class AppWindow(Gtk.ApplicationWindow):
         opening_section = self.TV.table_of_contents()
         print(f'User asked to open {opening_section}')
 
+        toc = readit.table_of_contents(project_directory)
+        toc.scan_the_model()
+
+        self.TV.generate_btoc_html()
+
         self.set_title(f'BookMaker - {project_directory}')
 
         self.recentbooks.clear()    # clear and rebuild the deque
@@ -552,7 +559,7 @@ class AppWindow(Gtk.ApplicationWindow):
             # and to the final images_directory (under project_directory/_book) which
             # will be used in generating the book in whatever format.
             images_directory = os.path.join(self.TV.project_directory, '_book/_images/')
-            shutil.copy(imagefilepath, images_directory)
+            image_file = shutil.copy(imagefilepath, images_directory)
 
             # this directory will be copied into the OEBPS directory of the epub, so we
             # need to insert a **relative** link in the generated xhtml content file.

@@ -31,14 +31,14 @@ html_header2 = """
     .inline {
         display:inline;
     }
-/* Specify styling for highlighted passages ( <div class="highlight"> ). */
+/* Specify styling for highlighted passages ( <div class="highlight" /> ). */
 .highlight {
 	font-size: 8pt; line-height: 120%;
 	/* Hide any line-overflow text */
-	white-space: pre-line; overflow: hidden;
+	white-space: pre; overflow: hidden;
 }
 code {
-        background-color: #e6e6e6;
+        white-space: pre; background-color: #e6e6e6;
     }        
     table, th, td {
         border: 1px solid black;
