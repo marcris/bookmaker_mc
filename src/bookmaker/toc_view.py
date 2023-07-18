@@ -134,7 +134,7 @@ class TOCview(Gtk.ScrolledWindow):
             return Gio.Settings.__new__('com.marcrisoft.bookmaker')
 
         # Otherwise, get schema from the current (development) directory.
-        # Make sure its been compiled since last change by compiling it now.
+        # Make sure it's been compiled since last change by compiling it now.
         # We should get (or overwrite) gschemas.compiled in ~/.local/share/glib-2.0/schemas,
         # but that should really be part of (local) installation. During development,
         # just compile it into current directory.
@@ -310,10 +310,12 @@ class TOCview(Gtk.ScrolledWindow):
             scan = self.toc_scan()  # we need a new generator
 
             for it in scan:
-                f.write('{0}* [{1}]({2})\n'.format(
+                test = ('{0}* [{1}]({2})\n'.format(
                     '    ' * it[0],
                     self.toc_model.get_value(it[1], 0),  # the section title
                     self.toc_model.get_value(it[1], 1)))  # the file path
+
+                f.write(test)
 
     def insert_inline_toc(self):
         with open(os.path.join(self.project_directory, '_book/TOC.html'), 'w') as f:
@@ -371,7 +373,7 @@ class TOCview(Gtk.ScrolledWindow):
                 subsub = str(self.toc_model.get_value(it[1], 4))
                 subsubsub = str(self.toc_model.get_value(it[1], 5))
                 subsubsubsub = str(self.toc_model.get_value(it[1], 6))
-                sub5 = str(self.toc_model.get_value(it[1], 7))
+                # sub5 = str(self.toc_model.get_value(it[1], 7))
 
                 if sub > '0':
                     level += 1
@@ -385,9 +387,9 @@ class TOCview(Gtk.ScrolledWindow):
                 if subsubsubsub > '0':
                     level += 1
                     section += f'.{subsubsubsub}'
-                if sub5 > '0':
-                    level += 1
-                    section += f'.{sub5}'
+                # if sub5 > '0':
+                #     level += 1
+                #     section += f'.{sub5}'
 
                 if level > previous_level:
                     f.write('<ul>\n')
@@ -446,7 +448,7 @@ class TOCview(Gtk.ScrolledWindow):
     def export_to_pdf(self):  # sourcery skip: extract-duplicate-method, extract-method, low-code-quality
         # Export to pdf is done by combining all the .xhtml files of the book into one file
         # called book.html, including additions like the pdf meta-data, generated chapter/section
-        # headings etc. and presenting the result to a suitable converter. Currently we use Prince
+        # headings etc. and presenting the result to a suitable converter. Currently, we use Prince
         # (www.princexml.com), although paged.js may be worth investigation.
 
         self.pdf_directory = f"{self.project_directory}/_pdf"
@@ -496,7 +498,7 @@ class TOCview(Gtk.ScrolledWindow):
             subsub = str(self.toc_model.get_value(it[1], 4))
             subsubsub = str(self.toc_model.get_value(it[1], 5))
             subsubsubsub = str(self.toc_model.get_value(it[1], 6))
-            sub5 = str(self.toc_model.get_value(it[1], 7))
+            # sub5 = str(self.toc_model.get_value(it[1], 7))
             level = 0
 
             if sub > '0':
@@ -511,9 +513,9 @@ class TOCview(Gtk.ScrolledWindow):
             if subsubsubsub > '0':
                 section += f'.{subsubsubsub}'
                 level += 1
-            if sub5 > '0':
-                section += f'.{sub5}'
-                level += 1
+            # if sub5 > '0':
+            #     section += f'.{sub5}'
+            #     level += 1
 
             self.open_section(f"{section} {title}", self.project_directory, filepath[:-3])
             print(f'section {section}, sub={sub}, subsub={subsub}, subsubsub={subsubsub}')

@@ -7,7 +7,7 @@ import platform
 import signal
 from collections import deque
 
-from summary_as_db import readit
+# from summary_as_db import readit
 
 
 print('')
@@ -392,9 +392,6 @@ class AppWindow(Gtk.ApplicationWindow):
 
         opening_section = self.TV.table_of_contents()
         print(f'User asked to open {opening_section}')
-
-        toc = readit.table_of_contents(project_directory)
-        toc.scan_the_model()
 
         self.TV.generate_btoc_html()
 
