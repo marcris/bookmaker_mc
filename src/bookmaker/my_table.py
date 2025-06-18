@@ -52,6 +52,7 @@ def _process_table(header, align):
             aligns[i] = None
 
         if len(headers) > i:
+            # pyrefly: ignore  # bad-argument-type
             cells.append({
                 'type': 'table_cell',
                 'text': headers[i],
@@ -60,6 +61,7 @@ def _process_table(header, align):
 
     i += 1
     while i + 1 < len(headers):
+        # pyrefly: ignore  # bad-argument-type
         cells.append({
             'type': 'table_cell',
             'text': headers[i],

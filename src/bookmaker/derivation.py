@@ -29,6 +29,7 @@ def parse_derivation_list(self, text):
     m = EXTEND_ITEM.match(text, 0)
     cells.append({
         'type': 'first_extend_item_start',
+        # pyrefly: ignore  # missing-attribute
         'text': m.group(1),
         })
 
@@ -39,12 +40,14 @@ def parse_derivation_list(self, text):
             m = EXTEND_ITEM.match(text, 0)          # extract the widget name
             cells.append({
                 'type': 'extend_item_start',
+                # pyrefly: ignore  # missing-attribute
                 'text': m.group(1),
             })
         else:
             m = EXTEND_ITEM.match(text, 0)          # extract the widget name
             cells.append({
                 'type': 'extend_item_same',
+                # pyrefly: ignore  # missing-attribute
                 'text': m.group(1),
             })
 
@@ -76,6 +79,7 @@ def render_extend_item(item):
     global item_no
     global indent
     indent = 3*item_no
+    # pyrefly: ignore  # unknown-name
     item_no += 1
     indent += 4*(item_no)
 

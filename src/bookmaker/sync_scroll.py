@@ -1,7 +1,10 @@
 import gi
+
 # print gi.__path__
 gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk, GLib
+# pyrefly: ignore  # missing-module-attribute
+from gi.repository import GLib, Gtk
+
 
 class SyncScroll(object):
 
@@ -32,10 +35,13 @@ class SyncScroll(object):
     @classmethod
     def on_inscroll_adj_value_changed(cls, dummy):
         # print('on_inscroll_adj_value_changed')
+        # pyrefly: ignore  # missing-attribute
         inscroll_range = cls.inscroll_adj.get_upper() - cls.inscroll_adj.get_page_size()
+        # pyrefly: ignore  # missing-attribute
         percentage = str(cls.inscroll_adj.get_value() * 100 / inscroll_range) if inscroll_range else '0'
         # print('SS.__changed__', percentage, cls.inscroll_adj.get_value(), cls.inscroll_adj.get_upper(), cls.inscroll_adj.get_page_size(), inscroll_range)
 
+        # pyrefly: ignore  # missing-attribute
         cls.outscroll.run_javascript('document.documentElement.scrollTop = \
             (document.documentElement.scrollHeight - window.innerHeight) *' + percentage + '/100;')
         # return False

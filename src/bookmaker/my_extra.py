@@ -1,5 +1,7 @@
 import re
 
+from mistune.util import escape, escape_html
+
 __all__ = ['plugin_my_extra']
 
 PUNCTUATION = r'''\\!"#$%&'()*+,./:;<=>?@\[\]^`{}|_~-'''
@@ -21,6 +23,13 @@ SUP_PATTERN = (
     r'\^([\s\S]*?)\^'
 )
 
+# Subscript pattern; allows text wrapped in ~ (tilde). Text can
+# include any combination of whitespace & non-whitespace; just not the
+# tilde, which terminates the pattern.
+SUB_PATTERN = (
+    r'\~([\s\S]*?)\~'
+)
+
 #: alternative image syntax::
 #  I don't understand all the regex; all I want is an alternative
 #  syntax to insert images inline with text, so just use # instead
@@ -30,6 +39,14 @@ SUP_PATTERN = (
 #: #[alt](/src)
 INLINE_IMAGE_PATTERN = (
         r'#?\[([\s\S]*?)\]\(([A-Za-z0-9./_]+)\)')
+
+# I want to extend the facility for code highlighting to inline code.
+# This involves replacing the CODESPAN_PATTERN. My current attempt
+# works but invalidates the original syntax, requiring language to be
+# specified even if it's "text".
+MY_CODESPAN_PATTERN = ( # `<language code><space or newline><code>`
+    r'(`)([^ \n]*)(?: |/n)([\s\S.]*?)(?:`)'
+)
 
 def parse_uscore(self, m, state):
     text = m.group(1)
@@ -42,17 +59,69 @@ def parse_sup(self, m, state):
     text = m.group(1)
     return 'sup', self.render(text, state)
 
+def parse_sub(self, m, state):
+    text = m.group(1)
+    return 'sub', self.render(text, state)
+
 def render_html_sup(text):
     return '<sup>' + text + '</sup>'
+
+def render_html_sub(text):
+    return '<sub>' + text + '</sub>'
 
 def parse_inline_image(self, m, state):
     text = m.group(1)
     link = m.group(2)
     return 'inline_image', link, text
 
+def parse_my_codespan(self, m, state):
+    lang = m.group(2)
+    code = m.group(3)
+    # print(f'parsing my_codespan as {lang}, {code}|')
+    return 'my_codespan', lang, code
+
 def render_inline_image(src, alt):
-    s = '<img src="' + src + '" alt="' + alt + '" style="vertical-align:middle"'
+    s = f'<img src="{src}" alt="{alt}" style="vertical-align:top"'
     return s + ' />'
+
+from pygments import highlight
+from pygments.formatters import html
+from pygments.lexers import get_lexer_by_name
+
+
+class CodeHtmlFormatter(html.HtmlFormatter):
+
+    # pyrefly: ignore  # bad-override
+    def wrap(self, source):
+        return self._wrap_code(source)
+
+    # pyrefly: ignore  # bad-override
+    def _wrap_code(self, source):
+        yield 0, '<code>'
+        for i, t in source:
+            yield i, t
+        yield 0, '</code>'
+
+def render_my_codespan(lang, text):
+    # print(f'rendering my_codespan ({"py"}, {text})')
+    lexer = get_lexer_by_name("py")  # , stripall=True)
+    formatter = html.HtmlFormatter(nowrap=True)
+    # pyrefly: ignore  # bad-specialization
+    text = highlight(text, lexer, formatter)[0:-1]
+    # print(repr(hl), '|')
+    # print('---------')
+    return f'<code>{text}</code>'
+
+def render_my_block_code(self, code, info=None):
+    html = '<code'
+    if info is not None:
+        info = info.strip()
+    if info:
+        lang = info.split(None, 1)[0]
+        lang = escape_html(lang)
+        html += ' class="language-' + lang + '"'
+    return f'{html}>{escape(code)}' + '</code>\n'
+
 
 def plugin_my_extra(md):
     md.inline.register_rule(
@@ -60,16 +129,24 @@ def plugin_my_extra(md):
     md.inline.register_rule(
         'sup', SUP_PATTERN, parse_sup)
     md.inline.register_rule(
+        'sub', SUB_PATTERN, parse_sub)
+    md.inline.register_rule(
         'inline_image', INLINE_IMAGE_PATTERN, parse_inline_image)
+    md.inline.register_rule(
+        'my_codespan', MY_CODESPAN_PATTERN, parse_my_codespan)
 
     # allow for asterisk_emphasis only; subvert previous underscore_emphasis
     md.inline.rules.remove('underscore_emphasis')
+    md.inline.rules.remove('codespan')
     md.inline.rules.append('uscore')
     md.inline.rules.append('sup')
-
+    md.inline.rules.append('sub')
+    md.inline.rules.append('my_codespan')
     md.inline.rules.append('inline_image')
 
     if md.renderer.NAME == 'html':
         md.renderer.register('uscore', render_html_uscore)
         md.renderer.register('sup', render_html_sup)
+        md.renderer.register('sub', render_html_sub)
         md.renderer.register('inline_image', render_inline_image)
+        md.renderer.register('my_codespan', render_my_codespan)

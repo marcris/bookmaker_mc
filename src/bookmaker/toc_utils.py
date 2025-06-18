@@ -1,14 +1,58 @@
-import os
+#import pdb
+import codecs
+import json
+import subprocess
+from datetime import datetime, timezone
 
 import gi
+import os
+# pyrefly: ignore  # import-error
+import shared
+from collections import namedtuple
+
+gi.require_version('Gdk', '3.0')
 gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk, Gdk
-
-# Declare
-popup = Gtk.Menu()
-
+# pyrefly: ignore  # missing-module-attribute
+from gi.repository import Gdk, Gtk  # noqa: E402
 
 from functools import wraps
+
+def get_record(model, it, fieldname):
+    # pyrefly: ignore  # invalid-argument
+    record = namedtuple('fieldnames',
+        ['title', 'filename', 'parentid', 'section', 'id',])
+    return record
+
+
+def tree_path_to_section(thepath):
+    thepath = thepath.rsplit(':')  # get a list of the path elements
+    newpath = []
+    for el in thepath:
+        # pyrefly: ignore  # bad-argument-type
+        newpath.append(str(int(el) + 1))
+    return '.'.join(newpath)
+
+
+def tree_path_to_following_section(thepath):
+    thepath = thepath.rsplit(':')  # get a list of the path elements
+    thepath[-1] = str(int(thepath[-1]) + 1)    # path to the following section
+    newpath = []
+    for el in thepath:
+        # pyrefly: ignore  # bad-argument-type
+        newpath.append(str(int(el) + 1))
+    return '.'.join(newpath)
+
+def tree_path_to_first_subsection(thepath):
+    thepath = thepath.rsplit(':')  # get a list of the path elements
+    thepath.append('0')    # path to the first subsection
+    newpath = []
+    for el in thepath:
+        # pyrefly: ignore  # bad-argument-type
+        newpath.append(str(int(el) + 1))
+    return '.'.join(newpath)
+
+
+
 def print_caller_name(stack_size=3):
     def wrapper(fn):
         @wraps(fn)
@@ -21,6 +65,7 @@ def print_caller_name(stack_size=3):
 
             for n in reversed(list(range(1, stack_size))):
                 module = inspect.getmodule(stack[n][0])
+                # pyrefly: ignore  # missing-attribute
                 callers.append(s.format(index=n, module=module.__name__, name=stack[n][3]))
 
             callers.append(s.format(index=0, module=fn.__module__, name=fn.__name__))
@@ -33,398 +78,571 @@ def print_caller_name(stack_size=3):
 
     return wrapper
 
-# @print_caller_name(4)
-def table_of_contents(self):
-    # Called from the main program.to display the TOC in the sidebar
+def debug_on(*exceptions):
+    if not exceptions:
+        exceptions = (AssertionError, )
+    def decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            try:
+                return f(*args, **kwargs)
+            except exceptions:
+                print(exceptions)#pdb.post_mortem(sys.exc_info()[2])
+        return wrapper
+    return decorator
 
-    # get a new model; the old one (if any) will no longer be referenced so should get garbage-collected
-    self.toc_model = Gtk.TreeStore(str, str, int, int, int, int, int, int)
-    self.toc_view.set_model(self.toc_model)
 
-    def celldatafunction(column, cell, model, iter, user_data=None):
-        section = str(model.get_value(iter, 2))
-        sub = str(model.get_value(iter, 3))
-        subsub = str(model.get_value(iter, 4))
-        subsubsub = str(model.get_value(iter, 5))
-        subsubsubsub = str(model.get_value(iter, 6))
-        sub5 = str(model.get_value(iter, 7))
-
-        if sub > '0':
-            section += '.' + sub
-        if subsub > '0':
-            section += '.' + subsub
-        if subsubsub > '0':
-            section += '.' + subsubsub
-        if subsubsubsub > '0':
-            section += '.' + subsubsubsub
-        if sub5 > '0':
-            section += '.' + sub5
-        section += '  ' + model.get_value(iter, 0)
-
-        cell.set_property('text', section)
-        return
-
-    # Read from SUMMARY.md
-    try:
-        with open(os.path.join(self.project_directory, 'SUMMARY.md'), 'r') as summary:
-            for line in summary:
-                parts = line.partition('*')
-                if parts[2]:  # to skip initial heading & blank line
-                    parts2 = parts[2].partition('[')
-                    parts22 = parts2[2].partition(']')
-
-                    parts222 = parts22[2].partition('(')
-                    parts2220 = parts222[2].partition(')')
-
-                    if parts[0] == "":
-                        piter = self.toc_model.append(None, [parts22[0], parts2220[0], 0, 0, 0, 0, 0, 0])
-                    if parts[0] == "    ":
-                        p2iter = self.toc_model.append(piter, [parts22[0], parts2220[0], 0, 0, 0, 0, 0, 0])
-                    if parts[0] in ["        "]:
-                        p3iter = self.toc_model.append(p2iter, [parts22[0], parts2220[0], 0, 0, 0, 0, 0, 0])
-                    if parts[0] == "            ":
-                        p4iter = self.toc_model.append(p3iter, [parts22[0], parts2220[0], 0, 0, 0, 0, 0, 0])
-                    if parts[0] == "                ":
-                        p5iter = self.toc_model.append(p4iter, [parts22[0], parts2220[0], 0, 0, 0, 0, 0, 0])
-
-    except Exception as e:
-        print(type(e))
-        print(e)
-
-    it = self.toc_model.get_iter_first()
-
-    self.re_number()
-
-    self.tvcolumn.set_cell_data_func(self.cell, celldatafunction)
-
-    self.insert_inline_toc()
-
-    # opening_section = self.cell.get_property('text')
-    opening_section = self.toc_model.get_value(it, 2)
-    title = self.toc_model.get_value(it, 0)
-    return f"{opening_section} {title}"
+sdict = {}     # module-level global: cross-reference key = child.id vs. value = parent.id
 
 
 def button_press_event(self, treeview, event):
     path, column, x, y = treeview.get_path_at_pos(int(event.x), int(event.y))
-
+    print(f'button_press_event called with path={path.to_string()}')
+    model = self.sorted_model   # treeview is displaying sorted_model
     # We click on the tree view in order to
-    #   - go to a new article (by left clicking)
-    #   OR
-    #   - add a new section/subsection under the clicked entry
-    #   OR
-    #   - delete the clicked entry/article
-
-    # Whichever of these actions is required, we need to record the file details for action
-    # but save the current file (if dirty) first.
-    # Since the file details belong to TV (self), don't update those yet.
+    #   - go to a new article (by left-clicking)
     if event.button == 1:  # left click
         if event.type == Gdk.EventType.BUTTON_PRESS:
-            self.MV.textbuffer.begin_not_undoable_action()
-
-            model = treeview.get_model()
-            section = str(model[path][2])
-            sub = str(model[path][3])
-            subsub = str(model[path][4])
-            subsubsub = str(model[path][5])
-            subsubsubsub = str(model[path][6])
-            sub5 = str(model[path][7])
-
-            if sub > '0':
-                section += '.' + sub
-            if subsub > '0':
-                section += '.' + subsub
-            if subsubsub > '0':
-                section += '.' + subsubsub
-            if subsubsubsub > '0':
-                section += '.' + subsubsubsub
-            if sub5 > '0':
-                section += '.' + sub5
-            section += '  ' + model[path][0]    # include the section title
+            self.markdown_view.textbuffer.begin_not_undoable_action()
+            it = model.get_iter(path)
+            section = model.section(it)
+            section += '  ' + model.title(it)  # include the section title
             print("Opening section", section)
 
-            req_filename_tail = model[path][1][:-3] # file details belong to TV (self)
+            # filename_tail = f'{model.filename(it)}'
 
-            self.open_section(section, self.project_directory, req_filename_tail)
-            self.MV.textbuffer.end_not_undoable_action()
+            self.open_section(section, f'{model.filename(it)}')
+            self.markdown_view.textbuffer.end_not_undoable_action()
 
     elif event.button == 3:  # right click
         # following is a way to do treeview.grab_focus without inadvertently selecting
         # the root element.
-        with self.toc_view.get_selection().handler_block(self.selection_changed_handler):
+        with treeview.get_selection().handler_block(self.selection_changed_handler):
             treeview.grab_focus()
 
         treeview.set_cursor(path, column, 0)
-        self.popup = Gtk.Menu()
-        it = Gtk.MenuItem("New section after selected")
-        it.connect("activate", self.new_section_after, treeview.get_model(), path)
-        self.popup.add(it)
-        it = Gtk.MenuItem("New subsection of selected")
-        it.connect("activate", self.new_subsection, treeview.get_model(), path)
-        self.popup.add(it)
-        it = Gtk.SeparatorMenuItem()
-        self.popup.add(it)
-        it = Gtk.MenuItem("Delete section")
-        it.connect("activate", self.delete_section, treeview.get_model(), path)
-        self.popup.add(it)
-        self.popup.show_all()
-        self.popup.popup(None, None, None, None, event.button, event.time)
 
-        return True # event has been handled
+        popup = create_popup(self, model, path)
+        popup.show_all()
+        popup.popup(None, None, None, None, event.button, event.time)
+
+        return True  # event has been handled
     else:
         pass  # mouse not on a treeview item
 
-    # if path:  # ... is not None
-    #     print (event)
-
-    return True
-
-
-def new_section_popup(self, dlg_title, title_label, file_label):
-    # Define a popup dialog to enter new [sub]section Title and File
-    global popup
-    popup = Gtk.Dialog(dlg_title, self.main_window, Gtk.DialogFlags.MODAL,
-                        (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
-                         Gtk.STOCK_OK, Gtk.ResponseType.OK))
-
-    def response_to_dialog(entry, dialog, response):
-        if response == Gtk.ResponseType.CANCEL:
-            print ("Response was cancel")
-        popup.response(response)
-
-    popup.entry1 = Gtk.Entry()    # to enter the new section Title
-    popup.entry1.set_width_chars(30)
-
-    # create a horizontal box to pack the entry and a label
-    hbox1 = Gtk.HBox()
-    hbox1.pack_start(Gtk.Label(title_label), False, 5, 5)
-    hbox1.pack_end(popup.entry1, True, True, 0)
-
-    popup.entry2 = Gtk.Entry()    # to enter the new section file path
-    # allow the user to press Enter to do Ok
-    popup.entry2.connect("activate", response_to_dialog, popup, Gtk.ResponseType.OK)
-    hbox2 = Gtk.HBox()
-    hbox2.pack_start(Gtk.Label(file_label), False, 5, 5)
-    hbox2.pack_end(popup.entry2, True, True, 0)
-    # add it and show it
-    popup.vbox.pack_start(hbox1, True, True, 0)
-    popup.vbox.pack_start(hbox2, True, True, 0)
-    popup.show_all()
+def create_popup(self, model, path):
+    popup = Gtk.Menu()
+    it = Gtk.MenuItem("New section after selected")
+    it.connect("activate", self.new_section_after, model, path)
+    popup.add(it)
+    it = Gtk.MenuItem("New subsection of selected")
+    it.connect("activate", self.new_subsection_after, model, path)
+    popup.add(it)
+    it = Gtk.SeparatorMenuItem()
+    popup.add(it)
+    it = Gtk.MenuItem("Delete section")
+    it.connect("activate", self.delete_section, model, model.get_iter(path))
+    popup.add(it)
 
     return popup
 
 
-def new_section_after(self, widget, model, path):
-    # User wants to create a new section following the selection at the same level.
-    # Define a popup dialog to enter new section Title and File
-    global popup
-    popup = self.new_section_popup('New section after selected', 'Section title', 'Section file ')
-    # go go go
-    response = popup.run()
-    if response == Gtk.ResponseType.OK:
-        text1 = popup.entry1.get_text()
-        text2 = popup.entry2.get_text()
-    else:   # response was Cancel
+def insert_into_db(self, title, relfilepath, parentid, section):
+    # The new record will be inserted into the database
+    self.summary.title = title
+    self.summary.filename = relfilepath
+    self.summary.parentid = parentid
+    self.summary.section = section
+    self.summary._in_db = False  # force insert rather than update
+
+    self.summary.save()
+    print(f'{title}, {relfilepath}, {parentid}, {section} written to db')
+
+    return self.summary.pk  # return the database key of the inserted record
+
+def modify_db_section(self, db_key, section):
+    # The record held under db_key will have its section field updated
+    # ====== get the record into self.summary
+    self.summary.get(db_key)
+
+    self.summary.id = db_key
+    self.summary.section = section
+    self.summary._in_db = True  # force update rather than insert
+
+    self.summary.save()
+
+
+
+class new_section_popup(Gtk.Dialog):
+    def __init__(self, title, parent=None):
+        # pyrefly: ignore  # bad-argument-type
+        super().__init__(self)
+
+        # Define a popup dialog to enter new [sub]section Title and File
+        self.dlg_title = title
+        self.set_title(title)
+        self.parent = None
+        self.flags = Gtk.DialogFlags.MODAL
+
+        self.add_buttons(
+            Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+            Gtk.STOCK_OK, Gtk.ResponseType.OK
+        )
+        self.entry1 = Gtk.Entry()  # to enter the new section Title
+        self.entry1.set_width_chars(30)
+
+        # create a horizontal box to pack the entry and a label
+        hbox1 = Gtk.HBox()
+        hbox1.pack_start(Gtk.Label('Section title'), False, 5, 5)
+        hbox1.pack_end(self.entry1, True, True, 0)
+
+        self.entry2 = Gtk.Entry()  # to enter the new section file path
+        self.entry2.set_placeholder_text('suffix .md will be added unless given')
+        self.entry1.connect("activate", self.move_on, self.entry2)
+        # allow the user to press Enter to do Ok
+        self.entry2.connect("activate", self.response_to_dialog, self, Gtk.ResponseType.OK)
+        hbox2 = Gtk.HBox()
+        hbox2.pack_start(Gtk.Label('Section file'), False, 5, 5)
+        hbox2.pack_end(self.entry2, True, True, 0)
+        # add it and show it
+        self.vbox.pack_start(hbox1, True, True, 0)
+        self.vbox.pack_start(hbox2, True, True, 0)
+        self.show_all()
+
+    def move_on(self, widget, child):
+        # used to allow 'Enter' in entry1 to focus entry2
+        # 'Enter' in entry2 will terminate the dialog
+        child.grab_focus()
+
+    def response_to_dialog(self, entry, dialog, response):
+        if response == Gtk.ResponseType.CANCEL:
+            print("Response was cancel")  # ... and do nothing else
+        self.response(response)
+
+    def get_section_info(self,):
         text1 = ''
         text2 = ''
+        # go go go
+        response = self.run()
+        if response != Gtk.ResponseType.CANCEL:
+            # if it wasn't CANCEL it was OK
+            text1 = self.entry1.get_text()  # desired section title
+            text2 = self.entry2.get_text()  # desired section filename
 
-    popup.destroy()
+        self.destroy()
+        return text1, text2
 
-    parent = None   # Not necessary to specify parent as we are setting sibling
-    sibling = self.toc_model.get_iter(path)     # set sibling to selected section
+def collect_refs(sorted_model, parent_iter, updated_parent_section):
+    # Update the section number in any children of parent_iter (recursively)
+    collected_refs = []
 
-    # get the (relative) filepath from the selected section
-    dir = os.path.dirname(self.toc_model.get_value(sibling, 1))
+    sub_iter = sorted_model.iter_children(parent_iter)  # first child (or None)
+    # index the children
+    child_no = 1
+    while sub_iter:
+        cm_iter = sorted_model.convert_iter_to_child_iter(sub_iter)
+        section = f"{updated_parent_section}.{str(child_no)}"
+        print(f'Section must be updated to {section}')
+        cm_ref = [cm_iter, section]
+        collected_refs.append(cm_ref)
 
-    # create the new section entry with the same (relative) filepath and the given filename
+        # Update the section number in any children of sub_iter (recursively)
+        collected_refs.extend(collect_refs(sorted_model, sub_iter, section))
 
-    # From GTK3 documentation for Gtk.TreeStore ...
-    # The insert_after() method inserts a new row after the row pointed to by sibling. If sibling is
-    # None, then the row will be prepended to the beginning of the children of parent. If parent and
-    # sibling are None, then the row will be prepended to the toplevel. If both sibling and parent
-    # are set, parent must be the parent of sibling. When sibling is set, parent is optional. This
-    # method returns a Gtk.TreeIter pointing at the new row.
-    filepath = os.path.join(dir, f'{text2}.md')
-    it = self.toc_model.insert_after(parent, sibling, (text1, filepath, 0, 0, 0, 0, 0, 0))
+        child_no += 1
+        sub_iter = sorted_model.iter_next(sub_iter)
+
+    return collected_refs
+
+def init_markdown_file(desired_title, desired_filename):
+    if desired_filename.endswith('.md'):  # as promised in the placeholder text
+        relfilepath = f'{desired_filename}'
+    else:
+        relfilepath = f'{desired_filename}.md'
 
     # get the full (absolute) filepath and filename
-    filepath = os.path.join(self.project_directory, filepath)
+    absfilepath = os.path.join(shared.markdown_directory, relfilepath)
     # write the initial Markdown heading to the file
-    with open(filepath, 'w') as newfile:
-        newfile.write('# {}\n'.format(text1))
-
-    self.re_write_summary()
-    self.re_number()
-
-def new_subsection(self, widget, model, path):  # sourcery skip: assign-if-exp
-    # User wants to create a new subsection of the selected section. We need to
-    # skip over any existing subsections and create this as the last.
-    #
-    # Define a popup dialog to enter new section Title and File
-    global popup
-    popup = self.new_section_popup('New subsection of selected', 'Section title', 'Section file ')
-    # go go go
-    response = popup.run()
-    if response == Gtk.ResponseType.CANCEL:
-        text1 = ''
-        text2 = ''
-    else:   # if it wasn't CANCEL it was OK
-        text1 = popup.entry1.get_text()
-        text2 = popup.entry2.get_text()
-
-        parent = self.toc_model.get_iter(path)              # the selected section
-        kids = self.toc_model.iter_n_children(parent)       # how many subsections already?
-        if kids:    # If parent has any existing children, new sub goes after last existing
-            sibling = self.toc_model.iter_nth_child(parent, kids-1)    # its last child
-        else:       # If parent has no children, this goes as first
-            sibling = None
+    with open(absfilepath, 'w') as newfile:
+        newfile.write(f'# {desired_title}\n')
+    return relfilepath
 
 
-        # get the (relative) filepath from the selected section
-        # If parent has existing children, take the filepath from the last existing child
-        dir = os.path.dirname(self.toc_model.get_value(parent, 1))
+def new_section_after(self, widget, sorted_model, selected_tree_path):
 
-        # create the new section entry with the same (relative) filepath and the given filename
+    # User wants to create a new section following the selected section at the same level.
+    
+    # We create a new record whose parent is the selected section's parent, and give it
+    # a section number which immediately follows the selected section.
 
-        # Gtk.TreeStore.insert_after
-        #
-        #     def insert_after(parent, sibling, row=None)
-        #
-        # parent :
-        # 	a Gtk.TreeIter, or None
-        #
-        # sibling :
-        # 	a Gtk.TreeIter, or None
-        #
-        # row :
-        # 	a tuple or list containing ordered column values to be set in the new row
-        #
-        # Returns :
-        # 	a Gtk.TreeIter pointing to the new row
-        #
-        # The insert_after() method inserts a new row after the row pointed to by sibling. If sibling is
-        # None, then the row will be prepended to the beginning of the children of parent. If parent and
-        # sibling are None, then the row will be prepended to the toplevel. If both sibling and parent
-        # are set, parent must be the parent of sibling. When sibling is set, parent is optional. This
-        # method returns a Gtk.TreeIter pointing at the new row.
-        filepath = os.path.join(dir, f'{text2}.md')
-        it = self.toc_model.insert_after(parent, sibling, (text1, filepath, 0, 0, 0, 0, 0, 0))
+    # We then have to update all the section numbers in records following the selected
+    # section at the same level or deeper (recursively).
+    
+    # Remember that the record is destined for the summary.db, which has
+    #   0: title
+    #   1: (relative) filepath
+    #   2: parent id
+    #   3: section
+    #   4: database key
+    
+    # Calculate these fields for the new section record.
+    desired_title, desired_filename = new_section_popup('New section after selected').get_section_info()
 
-        # get the full (absolute) filepath and filename
-        filepath = os.path.join(self.project_directory, filepath)
-        # write the initial Markdown heading to the file
-        with open(filepath, 'w') as newfile:
-            newfile.write('# {}\n'.format(text1))
+    # Create & initialise the markdown file for the new subsection
+    relfilepath = init_markdown_file(desired_title, desired_filename)
 
-        self.re_write_summary()
-        self.re_number()
+    selected = sorted_model.get_iter(selected_tree_path)  # set 'selected' to selected section
 
-    popup.destroy()
+    parentid = sorted_model.id(selected)  # new record's parentid (database field 'parentid')
+
+    # Work out what its section number will be.
+    tree_path_as_string = sorted_model.get_string_from_iter(selected)
+    new_section = tree_path_to_following_section(tree_path_as_string)
+
+    # Make up the new section record
+    section_entry = [desired_title, relfilepath, parentid, new_section, None]  # database key unknown as yet
 
 
+    selected_parent_iter = sorted_model.iter_parent(selected)  # selected's parent iter
 
-def delete_section(self, widget, model, path):
-    # Get the TreeView selected row(s)
-    selection = self.toc_view.get_selection()
-    # selection.get_selected() returns a tuple
-    # The first element is the treeview model (a ListStore)
-    # The second element is a treeiter for the selected row
-    model, it = selection.get_selected()
-    print("You selected to delete", model[it][0])
-    # Remove the ListStore row referenced by iter
-    model.remove(it)
+    child_model = sorted_model.get_model()
+    if selected_parent_iter:
+        cm_parent = sorted_model.convert_iter_to_child_iter(selected_parent_iter)
+    else:
+        cm_parent = None
 
-    self.re_write_summary()
-    self.re_number()
+
+    # The new record will be inserted into the database, but before doing so, we
+    # need to locate the first record whose section number will have to be updated.
+    # This will be the start of a sequence of records whose section numbers must all
+    # be updated. We don't do this yet, just record the necessary information.
+    refs = []
+    following_iter = sorted_model.iter_next(selected)  # first to be updated
+    while following_iter:
+        cm_iter = sorted_model.convert_iter_to_child_iter(following_iter)
+
+        following_path_as_string = sorted_model.get_string_from_iter(following_iter)
+        section = tree_path_to_following_section(following_path_as_string)
+
+        cm_ref = [cm_iter, section]
+        refs.append(cm_ref)
+
+        # Must update the section number in any children of following_iter (recursively)
+        refs.extend(collect_refs(sorted_model, following_iter, section))
+
+        following_iter = sorted_model.iter_next(following_iter)
+
+    # Now we have the required information, we can risk the changes that will be made
+    # automatically by the sorting algorithm
+    # so let's actually append the record to the cm_parent in child_model ...
+    cm_appended_iter = child_model.append(cm_parent, section_entry)
+    # ... and write the corresponding entry to the database
+    print(*section_entry)
+    db_key = self.insert_into_db(desired_title, relfilepath, parentid, new_section)
+    # ... and now we can update the id (database key) field in the tree record
+    child_model.set_value(cm_appended_iter, 4, int(db_key))
+
+    # At last, we can do the update (in the child_model) for all the rows collected
+    for ref in refs:
+        cm_iter = ref[0]
+        section = ref[1]
+        # Do the update in the child_model ...
+        was = child_model.section(cm_iter)
+        child_model.set_section(cm_iter, section)
+        now = child_model.section(cm_iter)
+
+        # ... and in the database
+        db_key = child_model.id(cm_iter)
+        record = self.summary.get(db_key)
+        record.section = now  # update using the id in the record
+        record.save()
+        print(f'Section {was} updated to {now}')
+
+
+def new_subsection_after(self, widget, sorted_model, selected_tree_path):
+    # User wants to create a new subsection of the selected section.
+    # We create a new record whose parent is the selected section, and give it a section
+    # number immediately following the last of the selected section's children (if any).
+
+    # If there are currently no children of selected, the new record is inserted as the
+    # first child.
+
+    # In this case, we don't need to update any subsequent section numbers, because
+    # there are none. To insert a new subsection in between existing subsections, use
+    # the new_section_after function.
+
+    # body of new_subsection_after begins
+    desired_title, desired_filename = new_section_popup('New sub-section of selected').get_section_info()
+
+    # Create & initialise the markdown file for the new subsection
+    relfilepath = init_markdown_file(desired_title, desired_filename)
+
+    parent = sorted_model.get_iter(selected_tree_path)  # set parent to selected section
+    # Now we need to create a new child for parent and add it after parent's existing 
+    # children, if any
+    
+    sub_iter = sorted_model.iter_children(parent)  # first child (or None)
+
+    if sub_iter:    # parent already has children
+       last_child_iter = None  # to avoid ref before assign warning
+       # index the children
+       while sub_iter:
+           last_child_iter = sub_iter
+           sub_iter = sorted_model.iter_next(sub_iter)
+       # Calculate the section number for the new subsection
+       tree_path_as_string = sorted_model.get_string_from_iter(last_child_iter)
+       new_section = tree_path_to_following_section(tree_path_as_string)
+    else:	# No existing children, so add as first child
+        tree_path_as_string = sorted_model.get_string_from_iter(parent)
+        new_section = tree_path_to_first_subsection(tree_path_as_string)
+        
+    parent_id = sorted_model.id(parent)
+
+    section_list = [desired_title, relfilepath, parent_id, new_section, None]    # database key unknown as yet
+    
+
+    cm_parent = sorted_model.convert_iter_to_child_iter(parent)
+
+    # append the record to the child model ...
+    child_model = sorted_model.get_model()
+    cm_appended_iter = child_model.append(cm_parent, section_list)
+    # ... and write the corresponding entry to the database
+    db_key = self.insert_into_db(desired_title, relfilepath, parent_id, new_section)
+    # ... and now we can update the id (database key) field in the tree record
+    child_model.set_value(cm_appended_iter, 4, int(db_key))
+
+    self.toc_view.expand_all()
+
+
+def tree_path_to_previous_section(thepath):
+    thepath = thepath.rsplit(':')  # get a list of the path elements
+    thepath[-1] = str(int(thepath[-1]) - 1)    # path to the previous section
+    newpath = []
+    for el in thepath:
+        # pyrefly: ignore  # bad-argument-type
+        newpath.append(str(int(el) + 1))
+    print('newpath = ', newpath)
+    return '.'.join(newpath)
+
+
+def delete_section(self, widget, sorted_model, it):
+    # Really need a confirmation dialog !!!!!!!!!!!
+    # This command will deliberately NOT delete the associated Markdown file
+    # Remove the database record
+    print(f'You selected to delete section {sorted_model.section(it)}  {sorted_model.title(it)}')
+
+    # All changes have to be done in the child model
+    child_model = sorted_model.get_model()
+
+    # The record will be deleted from the database, but before doing so, we
+    # need to locate the first record whose section number will have to be updated.
+    # This will be the start of a sequence of records whose section numbers must all
+    # be updated. We don't do this yet, just record the necessary information.
+    refs = []
+    following_iter = sorted_model.iter_next(it)  # first to be updated
+    while following_iter:
+        print(f'Ref points to {sorted_model.title(following_iter)}')
+        # Must update the section number in rows at the same level as following_iter
+        cm_iter = sorted_model.convert_iter_to_child_iter(following_iter)
+        # it has to be updated to the section number that logically follows
+        section = tree_path_to_previous_section(sorted_model.get_string_from_iter(following_iter))
+
+        cm_ref = [cm_iter, section]
+        refs.append(cm_ref)
+
+        # Must update the section number in any children of following_iter (recursively)
+        refs.extend(collect_refs(sorted_model, following_iter, section))
+        following_iter = sorted_model.iter_next(following_iter)
+
+    # At last, we can do the update (in the child model) for all the rows collected
+    for ref in refs:
+        cm_iter = ref[0]
+        section = ref[1]
+        # Do the update in the child model ...
+
+        was = child_model.section(cm_iter)
+        child_model.set_section(cm_iter, section)
+        now = child_model.section(cm_iter)
+
+        # ... and in the database
+        db_key = child_model.id(cm_iter)
+        record = self.summary.get(db_key)
+        record.section = now  # update using the id in the record
+        record.save()
+        print(f'Section {was} updated to {now}')
+
+    # Remove the row from the database ...
+    # ... and now remove the corresponding TreeStore row
+    # ... and now remove the row from the database
+    db_key = sorted_model.id(it)
+    child_model.remove(sorted_model.convert_iter_to_child_iter(it))
+
+    self.toc_view.expand_all()
+
+    record = self.summary.get(db_key)
+    record.delete()
+
 
 def toc_scan(self):
     """
     Scans the model of the TOC treeview , yielding at each section a tuple (level, treeiter)
     """
-    it = self.toc_model.get_iter_first()
+    model = self.toc_view.get_model()
+    it = model.get_iter_first()
     while it:
-        yield (0, it)
+        yield (it)
 
-        it2 = self.toc_model.iter_children(it)
+        it2 = model.iter_children(it)
         while it2:
-            yield (1, it2)
+            yield (it2)
 
-            it3 = self.toc_model.iter_children(it2)
+            it3 = model.iter_children(it2)
             while it3:
-                yield (2, it3)
+                yield (it3)
 
-                it4 = self.toc_model.iter_children(it3)
+                it4 = model.iter_children(it3)
                 while it4:
-                    yield (3, it4)
+                    yield (it4)
 
-                    it5 = self.toc_model.iter_children(it4)
+                    it5 = model.iter_children(it4)
                     while it5:
-                        yield (4, it5)
+                        yield (it5)
 
-                        it6 = self.toc_model.iter_children(it5)
+                        it6 = model.iter_children(it5)
                         while it6:
-                            yield (5, it6)
+                            yield (it6)
 
-                            it6 = self.toc_model.iter_next(it6)
+                            it6 = model.iter_next(it6)
 
-                        it5 = self.toc_model.iter_next(it5)
+                        it5 = model.iter_next(it5)
 
-                    it4 = self.toc_model.iter_next(it4)
+                    it4 = model.iter_next(it4)
 
-                it3 = self.toc_model.iter_next(it3)
+                it3 = model.iter_next(it3)
 
-            it2 = self.toc_model.iter_next(it2)
+            it2 = model.iter_next(it2)
 
-        it = self.toc_model.iter_next(it)
+        it = model.iter_next(it)
 
+def generate_btoc_html(self):
+    # Generate the HTML for the Table of Contents.
+    # The TOC HTML contains references to tags #ch{section} which must appear in the
+    # content of each section.
+    with open(os.path.join(shared.project_directory, '_pdf/btoc.html'), 'w') as f:
+        f.write('<div class="contents">\n')
+        f.write('<h1>Programming Python with GTK and SQLite</h1>\n')
+        f.write('<h2>Contents</h2>\n')
+        f.write('<ul class="toc">\n')
+        level = 1
 
-def re_number(self):
-    scan = self.toc_scan()  # we need a new generator
-    level0 = 0
+        scan = toc_scan(self)
+        for it in scan:
+            previous_level = level
+            section = self.toc_view.get_model().get_value(it, 3)
+            level = len(section.split('.'))
 
+            if level > previous_level:
+                f.write('<ul>\n')
+            elif level < previous_level:
+                f.write('</ul>\n')
+
+            f.write(
+                f'<li><a href="#ch{section}">{section} {self.toc_view.get_model().get_value(it, 0)}</a></li>\n')
+        #
+        f.write('</ul>\n')
+        f.write('</ul>\n')
+        f.write('</div>\n')
+
+def export_to_pdf(self):  # sourcery skip: extract-duplicate-method, extract-method, low-code-quality
+    # Export to pdf is done by combining all the .xhtml files of the book into one file
+    # called book.html, including additions like the pdf meta-data, generated chapter/section
+    # headings etc. and presenting the result to a suitable converter. Currently, we use Prince
+    # (www.princexml.com), although paged.js may be worth investigation.
+
+    self.pdf_directory = f"{shared.project_directory}/_pdf"
+    # created/emptied if user does "export to pdf"
+    os.chdir(self.pdf_directory)
+    with codecs.open('{0}/book.html'.format(self.pdf_directory), 'w') as f:
+        f.write("<!DOCTYPE html>\n")
+        f.write("<html>\n")
+        f.write("<head>\n")
+        f.write('    <meta charset="utf-8" />\n')
+        with open(f'{shared.project_directory}/book.json') as j:
+            data = json.load(j)
+            f.write(f"    <title> {data['title']} </title>\n")
+            author = data['author']
+            f.write(f'    <meta name="creator" content="{author}">\n')
+            f.write(f'    <meta name="author" content="{author}">\n')
+            date = datetime.now(tz=timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+            f.write(f'    <meta name="date" content={date}>\n')
+
+        f.write('    <link rel = "stylesheet" href = "github-markdown.css" type = "text/css" />\n')
+        f.write('    <link rel = "stylesheet" href = "github-pygments.css" type = "text/css" />\n')
+        f.write(
+            '    <script src = "file:/home/chris/MDProject/Code/programming-python-with-gtk-and-sqlite/_book/_script/mermaid.min.js"></script>\n')
+        f.write('    <script> mermaid.initialize({startOnLoad:true}) </script>\n')
+        f.write('    <link rel = "stylesheet" href = "pdf_styles.css" type = "text/css" />\n')
+        f.write("</head>\n")
+
+    generate_btoc_html(self)
+
+    print("Exporting to PDF")
+    with codecs.open(f'{self.pdf_directory}/book.html', 'a') as f:
+        f.write('<body>\n')
+        with codecs.open(f'{self.pdf_directory}/btoc.html', 'r') as g:
+            for line in g:
+                f.write(line)
+
+        f.write('<br/>\n')  # because if not we will start the body on a left page
+        f.write('<br/>\n')  # because if not we will start the body on a left page
+        f.write('<div class="body">\n')
+
+    os.chdir(self.pdf_directory)
+
+    scan = toc_scan(self)
     for it in scan:
-        if it[0] == 0:
-            level0 += 1
-            self.toc_model.set_value(it[1], 2, level0)
-            level1 = 0
-            level2 = 0
-            level3 = 0
-            level4 = 0
-            level5 = 0
+        title = self.toc_view.get_model().get_value(it, 0)
+        filepath = self.toc_view.get_model().get_value(it, 1)
+        section = self.toc_view.get_model().get_value(it, 3)
 
-        elif it[0] == 1:
-            level1 += 1
-            self.toc_model.set_value(it[1], 2, level0)
-            self.toc_model.set_value(it[1], 3, level1)
-            level2 = 0
+        self.open_section(f"{section} {title}", filepath)
+        print(f'opening section {section} {title}')
 
-        elif it[0] == 2:
-            level2 += 1
-            self.toc_model.set_value(it[1], 2, level0)
-            self.toc_model.set_value(it[1], 3, level1)
-            self.toc_model.set_value(it[1], 4, level2)
-            level3 = 0
+        with codecs.open(f'{shared.pdf_directory}/book.html', 'a') as f:
+            # Top-level sections(numbered 1, 2, 3 etc) should always start on a right-hand page.
+            # This is arranged by generating the following empty <div> in conjunction with the
+            # CSS  .h1_top_level {break-before: right;} in pdf_styles.css.
+            if len(section) == 1:
+                f.write('<div class="h1_top_level" />')
 
-        elif it[0] == 3:
-            level3 += 1
-            self.toc_model.set_value(it[1], 2, level0)
-            self.toc_model.set_value(it[1], 3, level1)
-            self.toc_model.set_value(it[1], 4, level2)
-            self.toc_model.set_value(it[1], 5, level3)
-            level4 = 0
+            s = section.split('.')
+            if len(s) <= 4:  # TOC to include levels 1-4
+                print('Writing <div class="chapter">')
+                f.write(f'<div id="ch{section}" class="chapter">\n')
+            # Now get the markdown content of the section and generate the (x)html.
+            mv = self.markdown_view
+            start = mv.textbuffer.get_start_iter()
+            end = mv.textbuffer.get_end_iter()
+            f.write(mv.markdown(mv.textbuffer.get_text(start, end, False)))
+            # Close the <div> for the TOC
+            if len(s) <= 4:  # TOC to include levels 1-4
+                f.write('</div>\n')
 
-        elif it[0] == 4:
-            level4 += 1
-            self.toc_model.set_value(it[1], 2, level0)
-            self.toc_model.set_value(it[1], 3, level1)
-            self.toc_model.set_value(it[1], 4, level2)
-            self.toc_model.set_value(it[1], 5, level3)
-            self.toc_model.set_value(it[1], 6, level4)
-            level5 = 0
+        print(f'written section {section} {title}')
 
-    # The following line is required to make visible a new section
-    # added after a previously unexpanded entry
-    self.toc_view.expand_all()
+    with codecs.open(f'{shared.pdf_directory}/book.html', 'a') as f:
+        f.write('</div>\n')  # end of div class="body"
+        f.write('</html>\n')  # end of html
 
-
+    os.chdir(f'{shared.pdf_directory}')  # run prince in the _pdf directory
+    # All image references in the html are of the form _images/<image file>,
+    # which points to <project_directory>/_images. However, during development
+    # these same references in the single .xhtml files point to
+    # <project_directory>/_book/_images. Therefore, these two _image directories
+    # must be identical.
+    # The alternative would be to merge the "source" (markdown) and "target" (html)
+    # into the same directory.
+    subprocess.run("~/.local/bin/prince "
+                   "frontmatter.html "  # Note btoc.html has been copied into book.html
+                   "-s pdf_styles.css book.html -o book.pdf", shell=True)
 

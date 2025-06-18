@@ -1,170 +1,280 @@
-import os, os.path
-import json
-import zipfile
-import codecs
-
-import shutil
-from datetime import datetime, timezone
-
-import uuid
-
-from collections import deque
-
-from contextlib import contextmanager
-from pathlib import Path
-
-from .XMLforEPUB import container_xml, content_opf, toc_xhtml, toc_xhtml_end, toc_ncx, toc_ncx_end, cover_xhtml
-
 import gi
-gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk, Gio, GLib
 
-import subprocess
-import pathlib
+gi.require_version("Gdk", "3.0")
+# gi.require_version("Gio", "2.0")
+gi.require_version("Gtk", "3.0")
+gi.require_version("WebKit2", "4.1")
+import os
+
+#from src import ActiveRecord
+from ActiveRecord import ActiveRecord
+# pyrefly: ignore  # missing-module-attribute
+from gi.repository import Gtk
+
+# pyrefly: ignore  # import-error
+import about
+# pyrefly: ignore  # import-error
+import shared
+# pyrefly: ignore  # import-error
+from markdown_view import MARKDOWNview
+
+from functools import wraps
 
 XHTML_EXT = '.xhtml'
 
 
-template_css="""h1 {
-  text-align: center;
-}
-"""
-
-open_bracket_html="""
-<!DOCTYPE html>
-<html xml:lang="en" lang="en" xmlns="http://www.w3.org/1999/xhtml"
-                              xmlns:epub="http://www.idpf.org/2007/ops">
-<head>
-<title></title>
-<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-<link rel = "stylesheet" href = "_css/github-markdown.css" type = "text/css" />
-<link rel = "stylesheet" href = "_css/github-pygments.css" type = "text/css" />
-
-<style>
-    .markdown-body {
-        min-width: 200px;
-        max-width: 790px;
-        margin: 0 auto;
-        padding: 30px;
-        break-before: always
-    }
-    .center-image {
-        display:block;
-        margin-left: auto;
-        margin-right: auto;
-    }
-    h1 {
-        break-before: always;
-    }
-    h1, h2, h3, h4, h5 {
-        page-break-after: avoid;
-    }
-    table, figure {
-        page-break-inside: avoid;
-    }
-    table, td, th {
-        border: 2px solid black;
-    }
-    tr {
-        valign:baseline;
-    }
-    table {
-        width: 100%;
-        border-collapse: collapse;
-    }
-    </style>
+# # An alternative formulation of namedtuples
+#
+# import operator
+# import types
+# import sys
+#
+# def named_tuple(classname, fieldnames):
+#     # Populate a dictionary of field property accessors
+#     cls_dict = { name: property(operator.itemgetter(n))
+#                  for n, name in enumerate(fieldnames) }
+#
+#     # Make a __new__ function and add to the class dict
+#     def __new__(cls, *args):
+#         if len(args) != len(fieldnames):
+#             raise TypeError(f'Expected {len(fieldnames)} arguments, not {len(args)}')
+#         return tuple.__new__(cls, (args))
+#
+#     cls_dict['__new__'] = __new__
+#
+#     # Make the class
+#     cls = types.new_class(classname, (tuple,), {},
+#                            lambda ns: ns.update(cls_dict))
+#     cls.__module__ = sys._getframe(1).f_globals['__name__']
+#     return cls
 
 
-    @page {
-        size: 6in 9in portrait;
-        margin: 70pt 60pt 70pt;
-    }
-    @page:first {
-        size: 6in 9in portrait;
-      margin: 0;
-    }
+# Layout of a row in the TreeModel
+field_names = 'title', 'filename', 'parentid', 'section', 'id'
+# section title for TOC, associated content file, parent row db key (or 0), section number for TOC, row's own db key
 
-    div.frontcover { 
-      page: cover; 
-      content: url("cover.png");
-      width: 100%;
-      height: 100%; 
-    }
-    @page:right{
-        @bottom-right {
-            content: counter(page);
-        }
-    }
-    @page:left{
-        @bottom-left {
-            content: counter(page);
-        }
-    }
 
-</style>
+class SortedModel(Gtk.TreeModelSort):
 
-</head>
-<body>
-<article class="markdown-body">
-"""
-close_bracket_html="""
-</article>\n</body></html>
-"""
+    def __init__(self, child_model):
+        # pyrefly: ignore  # unexpected-keyword
+        super().__init__(model=child_model)
 
+        self.child_model = child_model
+
+    def title(self, it):
+        return self[it][0]
+
+    def filename(self, it):
+        return self[it][1]
+
+    def parentid(self, it):
+        return self[it][2]
+
+    def section(self, it):
+        return self[it][3]
+
+    def id(self, it):
+        return self[it][4]
+
+
+class ChildModel(Gtk.TreeStore):
+
+    def __init__(self, *args):
+        super().__init__(*args)
+
+    def title(self, it):
+        return self[it][0]
+
+    def filename(self, it):
+        return self[it][1]
+
+    def parentid(self, it):
+        return self[it][2]
+
+    def section(self, it):
+        return self[it][3]
+
+    def id(self, it):
+        return self[it][4]
+
+    def set_section(self, it, value):
+        self.set_value(it, 3, value)
+
+
+# # Layout of a row in the sorted model tree
+# field_names = {
+#     'title':    0,  # section title for TOC
+#     'filename': 1,  # associated content file
+#     'parentid': 2,  # parent row db key (or 0)
+#     'section':  3,  # section number for TOC
+#     'id':       4,  # row db key
+# }
+
+@staticmethod
+def error_box(parent, message_text):
+    message = Gtk.MessageDialog(parent, Gtk.DialogFlags.MODAL, Gtk.MessageType.ERROR, Gtk.ButtonsType.OK)
+    message.set_markup('<span size="xx-large" weight="heavy">Error</span>')
+    message.format_secondary_text(message_text)
+    message.run()
+    message.destroy()
 
 class TOCview(Gtk.ScrolledWindow):
-    from .toc_utils import   \
-        table_of_contents,  \
-        toc_scan,  \
-        re_number,  \
-        \
-        button_press_event, \
-        new_section_popup,  \
-        new_section_after,  \
-        new_subsection,  \
-        delete_section
+    # pyrefly: ignore  # import-error
+    from toc_utils import (
+        button_press_event,
+        # table_of_contents,
+        export_to_pdf,
+    )
 
-    def find_settings(self):
-        # Make an instance of the GSettings for BookMaker.
-        # Should only be called once, from TOCview.__init__.
-        _curr_dir = os.path.split(__file__)[0]
-        if not _curr_dir.startswith('/home/'):
-            # We assume this means the application is installed, so look in the
-            # central directory for GSettings schemas (/usr/share/glib-2.0/schemas)
-            return Gio.Settings.__new__('com.marcrisoft.bookmaker')
+    # pyrefly: ignore  # bad-function-definition
+    def print_caller_name(stack_size=3):
+        def wrapper(fn):
+            @wraps(fn)
+            def inner(*args, **kwargs):
+                import inspect
+                stack = inspect.stack()
 
-        # Otherwise, get schema from the current (development) directory.
-        # Make sure its been compiled since last change by compiling it now.
-        # We should get (or overwrite) gschemas.compiled in ~/.local/share/glib-2.0/schemas,
-        # but that should really be part of (local) installation. During development,
-        # just compile it into current directory.
-        try:
-            print("compiling gsettings schema")
-            subprocess.check_call(f'glib-compile-schemas .', shell=True)
-        except subprocess.CalledProcessError:
-            print ("compile didn't work")
-            return None
-        else:
-            schema_source = Gio.SettingsSchemaSource.new_from_directory(
-                _curr_dir, Gio.SettingsSchemaSource.get_default(), trusted=False)
-            schema = schema_source.lookup(
-                'com.marcrisoft.bookmaker', recursive=False)
-            if not schema:
-                raise Exception("Cannot get GSettings schema 'com.marcrisoft.bookmaker'")
+                s = '{index:>5} : {module:^25} : {name}'
+                callers = ['', s.format(index='level', module='module', name='name'), '-' * 50]
 
-        return Gio.Settings.new_full(schema, backend=None, path='/com/marcrisoft/bookmaker/')
+                for n in reversed(list(range(1, stack_size))):
+                    module = inspect.getmodule(stack[n][0])
+                    # pyrefly: ignore  # missing-attribute
+                    callers.append(s.format(index=n, module=module.__name__, name=stack[n][3]))
+
+                callers.append(s.format(index=0, module=fn.__module__, name=fn.__name__))
+                callers.append('')
+                print('\n'.join(callers))
+
+                fn(*args, **kwargs)
+
+            return inner
+
+        return wrapper
+    # @print_caller_name(4)
+    def table_of_contents(self):
+        # Called from the main program.to display the TOC in the sidebar
+        sdict = {}  # module-level global: cross-reference key = child.id vs. value = parent.id
+
+        # Set up access to the database <project_directory>/summary.db
+        Summary = ActiveRecord.class_for_table(
+            # pyrefly: ignore  # bad-argument-type
+            f'{shared.project_directory}/summary.db', 'Summary', 'summary'
+        )
+        # pyrefly: ignore  # implicitly-defined-attribute
+        self.summary = Summary()
+
+        # get a new model; the old one (if any) will no longer be referenced so should get garbage-collected
+        self.toc_model = ChildModel(str, str, int, str, int)
+
+        # title, filename, parentid, section, id
+        # 0      1         2         3        4
+
+        # Define how to sort the rows of toc_model producing sorted_model.
+        # The rows are sorted as a hierarchy on the section numbers.
+        # Note: it is sorted model that is displayed as the table of contents
+        def compare(model, row1, row2, user_data):
+            # Using two rows so avoid the caching in model.get_record
+            parts1 = model.section(row1).split('.')
+            parts2 = model.section(row2).split('.')
+
+            # What to do if comparing section numbers at different levels, e.g. 2.6.2 vs 2.6.2.1
+            # Experimentally, this never happens; code in the model presumably handles it???????
+            if len(parts1) < len(parts2):
+                print(f'len({parts1}) < len({parts2})')
+                return -1
+            elif len(parts1) > len(parts2):
+                print(f'len({parts1}) > len({parts2})')
+                return 1
+
+            # so now the two lists are equal in length, so
+            # we can compare the actual values of the parts.
+            value1 = value2 = 0
+            # make up a composite integer from each list
+            for part in range(len(parts1)):
+                value1 = value1 * 1000 + int(parts1[part])
+                value2 = value2 * 1000 + int(parts2[part])
+            # compare the composite values
+            if value1 < value2:
+                # print(f'value1 {value1} < value2 {value2}')
+                return -1
+            elif value1 > value2:
+                # print(f'value1 {value1} > value2 {value2}')
+                return 1
+
+            # Duplicate section number: value1 {value1} = value2 {value2}')
+            # If this happens under normal circumstances, e.g. on initialising the tree
+            # structure from the database, it would be an error. However, it will occur
+            # temporarily while re-numbering sections after inserting a new section or
+            # subsection. Need to distinguish the error case, so we can tell the user.
+            return 0
+
+        def celldatafunction(column, cell, model, iter, user_data=None):
+            # Generate the text "<section> <title>
+            # Use this celldatafunction on the (only) cell in the display
+            cell.set_property('text', f'{model.section(iter)} {model.title(iter)}')
+
+
+        self.tvcolumn.set_cell_data_func(self.cell, celldatafunction)
+
+        # Read in the database records and build the treestore
+        # Only call this once, so we can assume sdict is empty
+        for t in self.summary.all():
+            if t.parentid == 0:  # a level0 section, e.g. '2' as '1'
+                sdict[t.id] = self.toc_model.append(None,
+                                                    [t.title, t.filename, t.parentid, t.section, t.id])
+            else:
+                sdict[t.id] = self.toc_model.append(sdict[t.parentid],
+                                                    [t.title, t.filename, t.parentid, t.section, t.id])
+
+        # sdict[t.id] contains the treemodel iterator pointing where the new record has been appended
+        # calculate the corresponding section number and overwrite that read from the database
+        # appended_path = self.toc_model.get_string_from_iter(sdict[t.id])
+        # appended_section = self.tree_path_to_section(appended_path)
+        # self.toc_model.set_section(sdict[t.id], appended_section)
+        #
+        self.toc_model.set_default_sort_func(compare, None)
+        self.toc_model.set_sort_column_id(Gtk.TREE_SORTABLE_DEFAULT_SORT_COLUMN_ID, Gtk.SortType.ASCENDING)
+        # pyrefly: ignore  # implicitly-defined-attribute, missing-attribute
+        self.sorted_model = SortedModel(self.toc_model)
+        self.toc_view.set_model(self.sorted_model)
+        self.toc_view.expand_all()
+
+        # Set up to open the first secction in the list
+        it = self.sorted_model.get_iter_first()
+
+        toc_first_section = self.sorted_model.section(it)
+        toc_first_title = self.sorted_model.title(it)
+        toc_first_file = self.sorted_model.filename(it)
+        return toc_first_file, f'{toc_first_section} {toc_first_title}'
+
+    def tree_path_to_section(self, thepath):
+        thepath = thepath.rsplit(':')  # get a list of the path elements
+        newpath = []
+        for el in thepath:
+            # pyrefly: ignore  # bad-argument-type
+            newpath.append(str(int(el) + 1))
+        return '.'.join(newpath)
+
+    def tree_path_to_following_section(self, thepath):
+        thepath = thepath.rsplit(':')  # get a list of the path elements
+        thepath[-1] = str(int(thepath[-1]) + 1)    # path to the following section
+        newpath = []
+        for el in thepath:
+            # pyrefly: ignore  # bad-argument-type
+            newpath.append(str(int(el) + 1))
+        return '.'.join(newpath)
 
     def __init__(self, main_window):
+        # pyrefly: ignore  # invalid-argument
         super(self.__class__, self).__init__()
 
         self.main_window = main_window
 
-        if not hasattr(self, 'gsettings'):
-            self.gsettings = self.find_settings()
-        self.recentbooks = deque([], maxlen=9)
-
-        self.project_directory = None
-        self.filename_tail = 'README'
+        # if not hasattr(self, 'gsettings'):
+        #     self.gsettings = self.find_settings()
+        # self.recentbooks = deque([], maxlen=9)
 
         # -------------------------------------------------------------
         # Set up the treeview for the table of contents
@@ -175,13 +285,17 @@ class TOCview(Gtk.ScrolledWindow):
 
         self.toc_view.set_show_expanders(False)
         self.toc_view.set_level_indentation(30)
-        # self.toc_view.columns_autosize()
 
         self.toc_view.connect("button-press-event", self.button_press_event)
-        self.popup = None   # for use as context menu
+        self.popup = None  # for use as context menu
+
+        selection = self.toc_view.get_selection()
+        self.selection_changed_handler = selection.connect(
+            "changed", self.on_toc_selection_changed
+        )
 
         # create the TreeViewColumn
-        self.tvcolumn = Gtk.TreeViewColumn('Table of Contents')
+        self.tvcolumn = Gtk.TreeViewColumn("Table of Contents")
         self.tvcolumn.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
         self.tvcolumn.set_property("fixed_width", 150)
 
@@ -198,429 +312,74 @@ class TOCview(Gtk.ScrolledWindow):
 
         # set the cell "text" attribute to column 0
         # (i.e. retrieve text from that column in toc_model)
-        # self.tvcolumn.add_attribute(self.cell, 'text', 0)
+        self.tvcolumn.add_attribute(self.cell, 'text', 0)
 
-        selection = self.toc_view.get_selection()
-        self.selection_changed_handler = selection.connect("changed", self.on_toc_selection_changed)
+        self.markdown_view = MARKDOWNview()
+
+        os.chdir(shared.project_directory)  # Always work in the project directory
+
+        toc_first_file, toc_first = self.table_of_contents()    # returns e.g. 'README.md', '1 Introduction'
+        print(f"Initially opening {toc_first} in {toc_first_file}")
+        shared.tail = toc_first_file
+        self.open_section(toc_first, toc_first_file)
 
         self.add(self.toc_view)
         self.show_all()
 
-
-
-
-    def set_MV(self, MV):
-        self.MV = MV
-
     def on_toc_selection_changed(self, selection):
         model, treeiter = selection.get_selected()
-        if treeiter != None:
-            print("Selection changed to", model[treeiter][0])
+        if treeiter is not None:
+            print("Selection changed to", model.title(treeiter))
 
+            # Before doing ANYTHING else, save the current changes if any
+            self.markdown_view.save_if_dirty(shared.tail)
 
-    @contextmanager
-    def choose_project_folder(self):
-        # Allow the user to select a project folder. The project folder must contain
-        # (as a minimum) a markdown file named README.md.
+            # pyrefly: ignore  # implicitly-defined-attribute
+            self.filename_path = os.path.join(
+                shared.markdown_directory, model.filename(treeiter)
+            )
+            print(f"Opening section {model.section(treeiter)} in {self.filename_path}")
+            self.force_first_line(f"{model.section(treeiter)} {model.title(treeiter)}")
 
-        chooser = Gtk.FileChooserDialog(title="Please choose a project folder",
-                                        parent=None,
-                                        action=Gtk.FileChooserAction.SELECT_FOLDER)
-        chooser.add_buttons("_Open", Gtk.ResponseType.OK)
-        chooser.add_buttons("_Cancel", Gtk.ResponseType.CANCEL)
+            shared.tail = model.filename(treeiter)
 
-        projects_base = self.gsettings.get_value('projects-base').unpack()
-        print(f'projects_base was set to {projects_base}')
-        if projects_base: # where user keeps existing projects
-            chooser.set_current_folder(projects_base)
-        else:
-            chooser.set_current_folder(os.path.expanduser('~'))
-            
-        filefilter = Gtk.FileFilter()
-        filefilter.set_name("Bookmaker projects")
-        filefilter.add_mime_type("inode/directory")
-        filefilter.add_pattern("*")
-        chooser.add_filter(filefilter)
+    # @print_caller_name(4)
+    def open_section(self, section, selected_filename_tail):
+        self.markdown_view.save_if_dirty(shared.tail)  # save the current changes, if any
 
-        chooser.set_default_response(Gtk.ResponseType.OK)
-        response = chooser.run()
+        self.filename_path = os.path.join(
+            shared.markdown_directory, selected_filename_tail
+        )
 
-        if response == Gtk.ResponseType.OK:
-            print("Ok clicked")
-            selected = chooser.get_filename()
-            projects_base = str(Path(selected).parents[0])
-            self.gsettings.set_value('projects-base', GLib.Variant('s', projects_base))
-            print(f'projects_base now set to {projects_base}')
-
-            print("Folder selected: %s" % chooser.get_filename())
-            os.chdir(selected)  # always work in the project directory
-
-            # The directory/file details will belong to TV as convention
-            self.project_directory = selected
-            self.filename_tail = 'README'
-
-            yield selected
-        elif response == Gtk.ResponseType.CANCEL:
-            print("Cancel clicked")
-            yield None
-
-        # this part acts as the contextmanager __exit__() method
-        chooser.destroy()
-
-    def open_section(self, section, project_directory, filename_tail):
-        # NEW file details are supplied as arguments
-        self.filename_path = os.path.join(project_directory, filename_tail)
-        print("Opening section {0} in {1}.md".format(section, self.filename_path))
-
-        # Current file details still held by TV (self)
-        self.MV.save_if_dirty(self.project_directory, self.filename_tail)  # save the current changes, if any
-
-        self.project_directory = project_directory  # new file details belong to TV (self)
-        self.filename_tail = filename_tail
-
+        print(f"Opening section {section} in {self.filename_path}")
         self.force_first_line(section)
+
+        print(f'Old tail = {shared.tail}')
+        shared.tail = selected_filename_tail
+        print(f'New tail = {shared.tail}')
 
     def force_first_line(self, section):
         try:
-            text = ""
-            f = codecs.open("{0}.md".format(self.filename_path), 'r', encoding='utf-8')
-            f.readline()        # read and discard existing first line
-            text = f.read(-1)   # rest of the file
-        except NameError as e:
-            print(
-                "Failed to open/read {0}.md :- {1}".format(self.filename_path, e.args))
-        finally:
-            self.MV.textbuffer.set_text("# {0}\n{1}".format(section, text))  # generated first line replacement
-            f.close()
+            with open(f"{self.filename_path}", "r", encoding="utf-8") as f:
+                print(f"force_first_line on {self.filename_path}")
+                f.readline()  # read and discard existing first line
+                text = f.read(-1)  # rest of the file
 
-        self.MV.is_dirty = False
+                # about.main()  should have been called from init.py, so the
+                # info we require should already be set.
+                self.markdown_view.textbuffer.set_text(
+                    "# {0}\n{1}".format(section, text)
+                )  # generated first line replacement + rest of content as was
 
+                # Changed signal from textbuffer handled by markdown_view.text_modified()
+                # which will set is_dirty flag True
+                self.markdown_view.is_dirty = False  # we just 'modified' it
 
-    def get_project_directory(self):
-        return self.project_directory
-
-    def re_write_summary(self):
-        with open(self.project_directory + "/" + 'SUMMARY.txt', 'w') as f:
-            f.write('# Summary\n\n')
-
-            scan = self.toc_scan()  # we need a new generator
-
-            for it in scan:
-                f.write('{0}* [{1}]({2})\n'.format(
-                    '    ' * it[0],
-                    self.toc_model.get_value(it[1], 0),  # the section title
-                    self.toc_model.get_value(it[1], 1)))  # the file path
-                    
-    def insert_inline_toc(self):
-        with open(os.path.join(self.project_directory, '_book/TOC.html'), 'w') as f:
-            f.write("<html>")
-            f.write("<head>")
-            f.write("</head>")
-            f.write("<body>")
-            
-            f.write("<h1>Contents</h1>")
-            f.write('<pre>')
-
-            scan = self.toc_scan()  # we need a new generator
-            for it in scan:
-                section = str(self.toc_model.get_value(it[1], 2))
-                sub = str(self.toc_model.get_value(it[1], 3))
-                subsub = str(self.toc_model.get_value(it[1], 4))
-                subsubsub = str(self.toc_model.get_value(it[1], 5))
-                subsubsubsub = str(self.toc_model.get_value(it[1], 6))
-                sub5 = str(self.toc_model.get_value(it[1], 7))
-
-                if sub > '0':
-                    section = "    {0}.{1}".format(section, sub)
-                if subsub > '0':
-                    section = "    {0}.{1}".format(section, subsub)
-                if subsubsub > '0':
-                    section += '.' + subsubsub
-                if subsubsubsub > '0':
-                    section += '.' + subsubsubsub
-                if sub5 > '0':
-                    section += '.' + sub5
-                                        
-                if sub == '0':
-                    f.write('\n')   # Blank line before top-level sections
-                # N.B. the next line MUST have <space><space><newline> to
-                # get correct line breaks in the HTML.
-                f.write("{0}    {1}  \n".format(section, self.toc_model.get_value(it[1], 0)))
-                
-            f.write('</pre></body></html>')
-            
-
-    def refresh_all(self):
-        # Used by export_to_epub().
-        # Run through the table of contents, saving copies of all the necessary files
-        # into backup_directory.
-        scan = self.toc_scan()  # we need a new generator
-
-        # make an empty "backup" directory, or empty it if it exists.
-        self.backup_directory = "{0}/_backup".format(self.project_directory)
-        shutil.rmtree(self.backup_directory, True)
-        os.mkdir(self.backup_directory)
-
-        shutil.copy2(f'{self.project_directory}/SUMMARY.md', f'{self.backup_directory}/SUMMARY.md')
-        shutil.copy2(f'{self.project_directory}/book.json', f'{self.backup_directory}/book.json')
-        shutil.copy2(f'{self.project_directory}/cover.png', f'{self.backup_directory}/cover.png')
-
-        shutil.copytree(f'{self.project_directory}/_css', f'{self.backup_directory}/_css')
-        shutil.copytree(f'{self.project_directory}/_images', f'{self.backup_directory}/_images')
-
-        for it in scan:
-            title = self.toc_model.get_value(it[1], 0)
-            filepath = self.toc_model.get_value(it[1], 1)
-            section = self.toc_model.get_value(it[1], 2)
-
-            htmlpath = filepath[0:-3] + XHTML_EXT
-            # print("HTMLPATH", htmlpath)
-
-            self.open_section(f"{section} {title}", self.project_directory, filepath[0:-3])
-
-            backup_md = self.backup_directory + "/" + filepath[0:-3] + ".md"
-            os.makedirs(os.path.dirname(backup_md), exist_ok=True)  # make a backup markdown file...
-            with codecs.open(backup_md, "w") as f:  # ...and copy the markdown text to it
-                start = self.MV.textbuffer.get_start_iter()
-                end = self.MV.textbuffer.get_end_iter()
-                f.write(self.MV.textbuffer.get_text(start, end, False))
-
-            self.PV.save_rendered_html(self.project_directory, filepath[0:-3]) # write html file
-
-            current_html = f'{self.project_directory}/_book/{htmlpath}' # now back up the html
-            backup_html = f'{self.backup_directory}/_book/{htmlpath}'
-            os.makedirs(os.path.dirname(backup_html), exist_ok=True)    # creates intermediate directories if missing
-            shutil.copy2(current_html, backup_html)
-
-    def export_to_pdf(self):
-        # Export to pdf is done by combining all the .xhtml files of the book into one file
-        # called book.html, including additions like the pdf meta-data, generated chapter/section
-        # headings etc. and presenting the result to a suitable converter. Currently we use Prince
-        # (www.princexml.com), although paged.js may be worth investigation.
-
-        self.pdf_directory = self.project_directory + "/_pdf"  # created/emptied if user does "export to pdf"
-        with codecs.open('{0}/book.html'.format(self.pdf_directory), 'w') as f:
-            f.write("<html>\n")
-            f.write("<head>\n")
-            f.write('    <meta charset="utf-8" />')
-            with open(self.project_directory + '/book.json') as j:
-                data = json.load(j)
-                f.write(f"    <title> {data['title']}\n </title>\n")
-                author = data['author']
-                f.write(f'    <meta name="creator" content="{author}">\n')
-                f.write(f'    <meta name="author" content="{author}">\n')
-                date = datetime.now(tz=timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
-                f.write(f'    <meta name="date" content={date}>\n')
-
-            f.write('    <link rel = "stylesheet" href = "github-markdown.css" type = "text/css" />\n')
-            f.write('    <link rel = "stylesheet" href = "github-pygments.css" type = "text/css" />\n')
-            f.write("</head>\n")
-
-        scan = self.toc_scan()  # we need a new generator
-
-        print("Exporting to PDF")
-        with codecs.open(f'{self.pdf_directory}/book.html', 'a') as f:
-            f.write('<body>\n')
-            f.write('<div class="frontcover">\n')
-            f.write('</div>\n')
-            f.write('<br/>\n')
-            f.write('<br/>\n')
-            f.write('<br/>\n')
-            f.write('<br/>\n')
-
-            f.write('<div class="body">\n')
-
-        os.chdir(self.pdf_directory)
-
-        for it in scan:
-            title = self.toc_model.get_value(it[1], 0)
-            filepath = self.toc_model.get_value(it[1], 1)
-            section = str(self.toc_model.get_value(it[1], 2))
-            sub = str(self.toc_model.get_value(it[1], 3))
-            subsub = str(self.toc_model.get_value(it[1], 4))
-            subsubsub = str(self.toc_model.get_value(it[1], 5))
-            subsubsubsub = str(self.toc_model.get_value(it[1], 6))
-            sub5 = str(self.toc_model.get_value(it[1], 7))
-
-            if sub > '0':
-                section += '.' + sub
-            if subsub > '0':
-                section += '.' + subsub
-            if subsubsub > '0':
-                section += '.' + subsubsub
-            if subsubsubsub > '0':
-                section += '.' + subsubsubsub
-            if sub5 > '0':
-                section += '.' + sub5
-
-            self.open_section(f"{section} {title}", self.project_directory, filepath[0:-3])
-            print(f'section {section}, sub={sub}, subsub={subsub}')
-
-            with codecs.open(f'{self.pdf_directory}/book.html', 'a') as f:
-                if subsub=='0': # major topic
-                # if sub > '0' and subsub == '0':  # major topic
-                    print(f'Writing <div class="chapter">')
-                    f.write('<div class="chapter">\n')
-                start = self.MV.textbuffer.get_start_iter()
-                end = self.MV.textbuffer.get_end_iter()
-                f.write(self.MV.markdown(self.MV.textbuffer.get_text(start, end, False)))
-                # if sub > '0' and subsub == '0':  # major topic
-                if subsub=='0':
-                    f.write('</div>\n')
-
-        with codecs.open(f'{self.pdf_directory}/book.html', 'a') as f:
-            f.write('</div>\n') # end of div class="body"
-
-        os.chdir(self.pdf_directory)
-        # subprocess.run("prince -s pdf-styles.css toc.html book.html -o builds/book.pdf", shell=True)
-        subprocess.run("prince -s pdf-styles.css book.html -o book.pdf", shell=True)
-
-    def export_to_epub(self):
-        def escape(t):
-            """HTML-escape the text in `t`."""
-            return (t
-                    .replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-                    .replace("'", "&#39;").replace('"', "&quot;")
-                    )
-
-        self.refresh_all()  # backs up the required stuff to _backup directory tree
-        os.chdir(self.project_directory)
-        self.epub_directory = self.project_directory + "/_epub"  # created/emptied if user does "export to epub"
-        shutil.rmtree(self.epub_directory, True)
-        os.mkdir(self.epub_directory)
-        os.chdir(self.epub_directory)
-
-        self.script_directory = self.book_directory + '/_script'
+                self.main_window.set_title(
+                    f"{about.NAME} - {about.VERSION}\t\t\t\t\t\t{section}"
+                )
 
 
-
-        # Create the epub file
-        with zipfile.ZipFile('mybook.epub', mode='w') as zf:
-            # Write the 'mimetype' file to it; note no newline, not compressed
-            zf.writestr('mimetype', 'application/epub+zip', compress_type=zipfile.ZIP_STORED)
-
-            zf.writestr('META-INF/container.xml', container_xml, compress_type=zipfile.ZIP_DEFLATED)
-
-            # zf.write('{0}/CSS-boilerplate.css'.format(self.css_directory), 'OEBPS/_css/CSS-boilerplate.css',
-            #          compress_type=zipfile.ZIP_DEFLATED)
-            zf.write('{0}/github-markdown.css'.format(self.css_directory), 'OEBPS/_css/github-markdown.css',
-                     compress_type=zipfile.ZIP_DEFLATED)
-            zf.write('{0}/github-pygments.css'.format(self.css_directory), 'OEBPS/_css/github-pygments.css',
-                     compress_type=zipfile.ZIP_DEFLATED)
-            zf.write('{0}/mermaid.min.js'.format(self.script_directory), 'OEBPS/_script/mermaid.min.js',
-                     compress_type=zipfile.ZIP_DEFLATED)
-
-            zf.write('{0}/cover.png'.format(self.project_directory), 'OEBPS/cover.png', compress_type=zipfile.ZIP_DEFLATED)
-            zf.writestr('OEBPS/cover.xhtml', cover_xhtml, compress_type=zipfile.ZIP_DEFLATED)
-
-            self.title = 'Programming Python with GTK + and SQLite'
-            self.author = 'C.C. Brown'
-            self.date = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
-            # must be in ISO 8601 format, with timezone Z indicating UTC
-            # i.e. if used in a different timezone, utcnow will translate to UTC equivalent
-            # doesn't account for daylight saving time but for this use who cares?
-
-            self.ISBN = uuid.uuid4()
-            print(self.ISBN)
-            # input argument format to template is in dictionary format (see template for where variables are inserted)
-            argDict = {'title': self.title,
-                       'author': self.author,
-                       'date': self.date,
-                       'ISBN': self.ISBN}
-
-            c_opf = content_opf.format_map(argDict)
-
-            imagedir = self.project_directory + "/_book/_images"
-            image_list = os.listdir(imagedir)
-            for imagefile in image_list:
-                imagename = imagefile.split('.')[0]
-                imagetype = imagefile.split('.')[-1]
-                # zf.write('{0}/{1}'.format(imagedir, imagefile), 'OEBPS/_images/{0}'.format(imagefile),
-                zf.write('{0}/{1}'.format(imagedir, imagefile), 'OEBPS/_book/_images/{0}'.format(imagefile),
-                                  compress_type=zipfile.ZIP_DEFLATED)
-                c_opf += '    <item id="{0}" href="{1}" media-type="image/{2}" />\n'.format(
-                    '{0}-{1}'.format(imagename, imagetype), '/_book/_images/{0}'.format(imagefile), imagetype)
-
-            # Insert the links to the HTML content files into the Manifest section of the content.opf
-            scan = self.toc_scan()
-
-            for it in scan:
-                filepath = self.toc_model.get_value(it[1], 1)
-                htmlpath = filepath[0:-3] + '.xhtml'
-                filename = filepath.split('/')[-1][0:-3]
-                c_opf += '    <item id="{0}" href="{1}" media-type="application/xhtml+xml" />\n'.format(filename, htmlpath)
-
-                print ('Copying {0}/{1}'.format(self.book_directory, htmlpath))
-                # While we have the details to hand, add the content file itself to the zip
-                zf.write('{0}/{1}'.format(self.book_directory, htmlpath),
-                         'OEBPS/' + htmlpath,
-                         compress_type=zipfile.ZIP_DEFLATED)
-
-            c_opf += '  </manifest>\n'
-
-            # Generate the Spine section of the content.opf
-            c_opf += '  <spine toc="ncx">\n'
-            scan = self.toc_scan()  # we need a new generator
-
-            for it in scan:
-                filepath = self.toc_model.get_value(it[1], 1)
-                filename = filepath.split('/')[-1][0:-3]
-                c_opf += '    <itemref idref="{0}" />\n'.format(filename)
-
-            c_opf += '  </spine>\n'
-
-            c_opf += '</package>\n'
-            # That completes the OPF package; add it to the zip
-            zf.writestr('OEBPS/content.opf', c_opf, compress_type=zipfile.ZIP_DEFLATED)
-
-            # Now we need
-            toc_html = toc_xhtml    # basis for toc.xhtml from XMLforEPUB.py
-
-            scan = self.toc_scan()  # we need a new generator
-
-            for it in scan:
-                title = escape(self.toc_model.get_value(it[1], 0))   # title may contain special character(s)
-                filepath = self.toc_model.get_value(it[1], 1)
-                htmlpath = filepath[0:-3] + XHTML_EXT
-                toc_html += '            <li><a href="{0}">"{1}"</a></li>\n'.format(htmlpath, title)
-
-            toc_html += toc_xhtml_end    # termination for toc.xhtml from XMLforEPUB.py
-            zf.writestr('OEBPS/toc.xhtml', toc_html, compress_type=zipfile.ZIP_DEFLATED)
-
-            # Now the legacy toc.ncx file so EPUB2 readers can process it (EPUB3 reader ignores it)
-            ncx = toc_ncx    # basis for toc.ncx from XMLforEPUB.py
-            print(self.ISBN)
-            argDict = {'ISBN': self.ISBN}
-            ncx = ncx.format_map(argDict)
-
-            scan = self.toc_scan()  # we need a new generator
-            playOrder = 0
-            template = """\
-        <navPoint id="navPoint-%(playOrder)s" playOrder="%(playOrder)s">
-          <navLabel>
-            <text>%(title)s</text>
-          </navLabel>
-          <content src="%(htmlpath)s"/>
-        </navPoint>
-    """
-            for it in scan:
-                title = escape(self.toc_model.get_value(it[1], 0))   # title may contain special character(s)
-                filepath = self.toc_model.get_value(it[1], 1)
-                htmlpath = filepath[0:-3] + XHTML_EXT
-                playOrder += 1
-                argDict = {'playOrder': playOrder,
-                           'title': title,
-                           'htmlpath': htmlpath,
-                           'ISBN': self.ISBN}
-                ncx += template % argDict
-
-            ncx += toc_ncx_end
-            zf.writestr('OEBPS/toc.ncx', ncx, compress_type=zipfile.ZIP_DEFLATED)
-            
-            print (zf.testzip())
-            
-        shutil.copyfile('mybook.epub', 'mybook.zip')
-
-
-
+        except FileNotFoundError as e:
+            error_box(None, f"{e.filename}\n\n{e.args[1]}")
 

@@ -6,15 +6,15 @@
 # or in setup.cfg
 
 from pathlib import Path
-import tomli  # will be import tomllib in Python 3.11
 
-from importlib.metadata import version
+import tomllib  # will be import tomllib in Python 3.11
+from importlib_metadata import version
 
 NAME = 'BookMaker'
 # Single-source the project version from pyproject.toml
-VERSION = 'Unknown'
-COPYRIGHT = 'Copyright © 2021 Chris Brown and Marcris Software'
-DESCRIPTION = 'A Book Authoring Application in Python - inspired by Gitbook-Legacy'
+VERSION = 'Version unknown'
+COPYRIGHT = 'Copyright © 2025 Chris Brown and Marcris Software'
+DESCRIPTION = 'A Book Authoring Application in Python'
 AUTHORS = [
     'Chris Brown <chris@marcrisoft.co.uk>'
 ]
@@ -33,13 +33,17 @@ def main():
     # either from pyproject.toml during development ...
     global VERSION, DESCRIPTION
     pyproject_toml_path = Path('../../pyproject.toml')
+    print(f'pyproject_toml_path = {pyproject_toml_path}')
     if pyproject_toml_path.exists():
+        print("Getting version from pyproject.toml")
         with open(file=str(pyproject_toml_path), mode='rb') as pyproject_toml_file:
-            pyproject_toml = tomli.load(pyproject_toml_file)
-            if 'tool' in pyproject_toml and 'poetry' in pyproject_toml['tool']:
-                VERSION = pyproject_toml['tool']['poetry']['version']
-                DESCRIPTION = pyproject_toml['tool']['poetry']['description']
+            pyproject_toml = tomllib.load(pyproject_toml_file)
+            if 'project' in pyproject_toml:
+                VERSION = pyproject_toml['project']['version']
+                DESCRIPTION = pyproject_toml['project']['description']
     else:
         # ... or using importlib.metadata.version once installed.
-        VERSION = version("bookmaker-mc")
+        print("Getting version from importlib.metadata")
+        VERSION = 42#version("bookmaker-mc")
+
 

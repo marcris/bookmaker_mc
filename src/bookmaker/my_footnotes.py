@@ -1,8 +1,11 @@
 import re
+
 from mistune.inline_parser import LINK_LABEL
+
 try:
     from mistune.util import unikey
 except ImportError:
+    # pyrefly: ignore  # missing-module-attribute
     from mistune.scanner import unikey
 
 

@@ -1,43 +1,29 @@
-[tool.poetry]
-name = "bookmaker_mc"
-version = "0.6.0"
+[project]
+name = "BookMaker25-04"
+version = "25.04.0"
 description = "A Book Authoring Application in Python"
-license = "MIT"
-authors = ["Chris Brown <chris@marcrisoft.co.uk>"]
+authors = [
+    {name = "Chris Brown", email = "chris@marcrisoft.co.uk"},
+]
+dependencies = [
+    "mistune == 2.0.5",
+    "pygments == 2.9.0"
+]
+requires-python = ">=3.12"
 readme = "README.md"
-repository = "https://github.com/marcris/bookmaker-mc"
-classifiers = [
-    "Programming Language :: Python :: 3.8",
-    "Development Status :: 4 - Beta",
-    "Intended Audience :: End Users/Desktop"
-]
-packages = [
-    { include = "bookmaker", from = "src" },
-]
-include = ["src/bookmaker/*.xml"]
-
-[tool.poetry.dependencies]
-python = "^3.8"
-
-PyGObject = { version = "^3.40" }
-Pygments = { version = "^2.9" }
-mistune = { version = "^2.0.0rc1" }#git = "https://github.com/lepture/mistune.git", tag = "v2.0.0rc1" }
-#tomlkit = "^0.7.2"
-tomli = "^2.0.1"
-
-[tool.poetry.dev-dependencies]
-pytest = "^5.2"
+license = {text = "MIT"}
+distribution = true
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"
 
-[tool.poetry.scripts]
-bm = "bookmaker:main"
-
-[virtualenvs]
-in-project = true
-
-#[tool.poetry-version-plugin]
-#source = 'init'
-
+[tool.pyrefly]
+search_path = [
+    "/home/chris/PycharmProjects/BookMaker25-04/src/bookmaker/..."
+]
+project_includes = ["**/*"]
+project_excludes = [
+    "**/.[!/.]*",
+    "**/*venv/**/*",
+]
