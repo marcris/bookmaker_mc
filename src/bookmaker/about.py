@@ -44,6 +44,6 @@ def main():
     else:
         # ... or using importlib.metadata.version once installed.
         print("Getting version from importlib.metadata")
-        VERSION = 42#version("bookmaker-mc")
+        VERSION = version("bookmaker-mc")
 
 

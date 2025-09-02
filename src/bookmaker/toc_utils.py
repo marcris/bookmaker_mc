@@ -8,7 +8,10 @@ import gi
 import os
 # pyrefly: ignore  # import-error
 import shared
+import about
 from collections import namedtuple
+
+from src.bookmaker import config_handler
 
 gi.require_version('Gdk', '3.0')
 gi.require_version('Gtk', '3.0')
@@ -581,7 +584,7 @@ def export_to_pdf(self):  # sourcery skip: extract-duplicate-method, extract-met
         f.write(
             '    <script src = "file:/home/chris/MDProject/Code/programming-python-with-gtk-and-sqlite/_book/_script/mermaid.min.js"></script>\n')
         f.write('    <script> mermaid.initialize({startOnLoad:true}) </script>\n')
-        f.write('    <link rel = "stylesheet" href = "pdf_styles.css" type = "text/css" />\n')
+        f.write('    <link rel = "stylesheet" href = "new_pdf.css" type = "text/css" />\n')
         f.write("</head>\n")
 
     generate_btoc_html(self)
@@ -642,7 +645,15 @@ def export_to_pdf(self):  # sourcery skip: extract-duplicate-method, extract-met
     # must be identical.
     # The alternative would be to merge the "source" (markdown) and "target" (html)
     # into the same directory.
-    subprocess.run("~/.local/bin/prince "
-                   "frontmatter.html "  # Note btoc.html has been copied into book.html
-                   "-s pdf_styles.css book.html -o book.pdf", shell=True)
+    import config_handler
+    # config_handler = config_handler.ConfigHandler('/home/chris/PDM-projects/BookMaker_mc/src/bookmaker/config.ini')
+    # print('Config sections: ', config_handler.config.sections())
+    pdf_title = 'Dummy title'#config_handler.config['pdf']['title']
+    # print(f'PDF title is {pdf_title}')
+    subprocess.run("~/.local/bin/prince"
+                    " frontmatter.html"  # Note btoc.html has been copied into book.html
+                    " -s new_pdf.css "
+                   f" --pdf-title='{pdf_title}'"
+                    " --pdf-creator=BookMaker"
+                    " book.html -o new.pdf", shell=True)
 

@@ -1,0 +1,263 @@
+/* For books published via: Amazon KDP */
+/* For 24bookprint.com size should be 170mm by 240mm */
+
+/* define a page */
+@page {
+	size: 170mm 244mm;
+	margin-left: 25mm; margin-right: 22mm; margin-top: 25mm; margin-bottom: 25mm; 
+}
+ 
+
+p {
+	color: #000000; line-height: 120%; text-align: justify; orphans: 2; widows: 2;
+	margin-bottom: 1mm; direction: ltr; background: transparent;
+	font-family:DejaVu, serif;
+}
+
+/* Styling for inline images and block images differ only in
+   that block images are centered on the page. We do this by
+   defining .center and giving <img class=center> for block
+   and omitting this for inline */
+.center {
+  max-width: 100%;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Specify styling for highlighted passages ( <div class="highlight"> ). */
+.highlight {
+	font-size: 8pt; line-height: 120%;
+	/* Hide any line-overflow text */
+	white-space: pre; overflow: hidden;
+}
+code {
+    font-size: 8pt; line-height: 120%;
+	background-color: #e6e6e6;
+	white-space: pre;
+}        
+
+:root {
+  --book-title: "Programming Python with GTK and SQLite";
+}
+
+/* Define page style for pages in div class="contents" */
+.contents {
+    display: block;
+    page: table-of-contents;
+    counter-reset: page 1;
+    line-height: 1.3;
+
+}
+/* styles for the right hand spread
+Bottom right "Table of Contents", bottom left current page */
+@page table-of-contents:right { 
+   @bottom-left {
+       margin: 10pt 0 30pt 0;
+       border-top: .25pt solid #666;
+	   content: "Table of Contents";
+       font-size: 9pt;
+       color: #333;
+   }
+   @bottom-right { 
+       margin: 10pt 0 30pt 0;
+       border-top: .25pt solid #666;
+       content: counter(page, lower-roman);
+       font-size: 9pt;
+   }
+}
+/* styles for the left hand spread 
+Bottom right book title, bottom left current page */
+@page table-of-contents:left {
+   @bottom-right {
+       margin: 10pt 0 30pt 0;
+       border-top: .25pt solid #666;
+	   content: var(--book-title);
+       font-size: 9pt;
+       color: #333;
+   }
+   @bottom-left { 
+       margin: 10pt 0 30pt 0;
+       border-top: .25pt solid #666;
+       content: counter(page, lower-roman);
+       font-size: 9pt;
+   }
+}
+
+/* Define page style for pages in div class="body"*/
+.body {
+    display: block;
+	page: body;
+	counter-reset: page 1;
+	font-family: DejaVu, serif;
+	line-height: 1;
+	font-size: 10pt;
+}
+/* styles for the right hand spread
+Bottom left we display the section heading, bottom right the page using a CSS counter */
+@page body:right { 
+   @bottom-left {
+       margin: 10pt 0 30pt 0;
+       border-top: .25pt solid #666;
+	   content: string(section);
+       font-size: 9pt;
+       color: #333;
+   }
+   @bottom-right { 
+       margin: 10pt 0 30pt 0;
+       border-top: .25pt solid #666;
+       content: counter(page);
+       font-size: 9pt;
+   }
+}
+
+/* styles for the left hand spread 
+Bottom right book title, bottom left current page */
+@page body:left {
+   @bottom-right {
+       margin: 10pt 0 30pt 0;
+       border-top: .25pt solid #666;
+	   content: var(--book-title);
+       font-size: 9pt;
+       color: #333;
+   }
+   @bottom-left { 
+       margin: 10pt 0 30pt 0;
+       border-top: .25pt solid #666;
+       content: counter(page);
+       font-size: 9pt;
+   }
+}
+
+/* get the title of the current section - this will be the content of the h1.
+
+	We generate a marker like
+
+	  <div id="ch1.2.3" class="chapter">
+
+	which is used to generate the Table of Contents (TOC) */
+h1 {
+    string-set: section content();
+    page-break-before: always;
+    line-height: 1.3;
+}
+/*	Top level sections (numbered 1, 2, 3 etc) should always start on a
+	right-hand page. This is arranged by generating an empty
+
+	  <div class=h1_top_level>
+
+	preceding the <div id="ch1" class="chapter"> marker for the TOC  */
+.h1_top_level {
+	break-before: right;
+}
+	
+
+/*	Standard font sizes for headings */
+/*	html.spec.whatwg.org/multipage/rendering.html
+	15.3.6 Sections and headings
+*/
+/*  Using the equivalent from www.w3schools.com/tags/tag_hn.asp
+    to avoid margin-block not supported by Prince
+*/
+h1 {
+  display: block;
+  font-size: 2em;
+  margin-top: 0.67em;
+  margin-bottom: 0.67em;
+  margin-left: 0;
+  margin-right: 0;
+  font-weight: bold;
+}
+h2 {
+  display: block;
+  font-size: 1.5em;
+  margin-top: 0.83em;
+  margin-bottom: 0.83em;
+  margin-left: 0;
+  margin-right: 0;
+  font-weight: bold;
+}
+h3 {
+  display: block;
+  font-size: 1.17em;
+  margin-top: 1em;
+  margin-bottom: 1em;
+  margin-left: 0;
+  margin-right: 0;
+  font-weight: bold;
+}
+h4 {
+  display: block;
+  font-size: 1.00em;   /* strictly unecessary as default */
+  margin-top: 1.33em;
+  margin-bottom: 1.33em;
+  margin-left: 0;
+  margin-right: 0;
+  font-weight: bold;
+}
+h5 {
+  display: block;
+  font-size: 0.83em;
+  margin-top: 1.67em;
+  margin-bottom: 1.67em;
+  margin-left: 0;
+  margin-right: 0;
+  font-weight: bold;
+}
+h6 {
+  display: block;
+  font-size: 0.67em;
+  margin-top: 2.33em;
+  margin-bottom: 2.33em;
+  margin-left: 0;
+  margin-right: 0;
+  font-weight: bold;
+}
+
+h1,h2,h3,h4,h5 {
+	page-break-after: avoid;
+	page-break-inside:avoid;
+}
+
+h1 + p, h2 + p, h3 + p, h4 + p, h5 + p, h6 + p {
+    page-break-before: avoid
+}
+
+table, th, td {
+    border: 1px solid black;
+    border-collapse: collapse
+    }
+table, figure {
+    page-break-inside: avoid
+    }
+ul.toc {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    }
+ul > ul {
+    padding-left: 0;
+    /* override the default 40px indentation .. */
+    margin-left: 1.5em;
+    /* .. and insert our preferred value */
+    list-style-type: none;
+    }
+ul > li {
+	line-height: 1.3;
+}
+
+/* create page numbers using target-counter in the TOC */
+ul.toc a::after {
+    content: leader(".") target-counter(attr(href), page);
+    }
+ul.toc li a {
+    text-decoration: none;
+    }
+a {
+    color: #000000;
+    text-decoration: none;
+    }
+.gb {
+    /* light grey background */
+    background-color: #ececec;
+    }
